@@ -1,0 +1,186 @@
+Mar 15 10:00:00 webserver kernel: [423103.805] nf_conntrack: table full, dropping packet
+Mar 15 10:00:02 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:03 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:00:03 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:00:04 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:05 webserver kernel: [413531.807] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:00:08 gateway sshd[15731]: Accepted publickey for admin from 192.168.1.10 port 49297 ssh2
+Mar 15 10:00:18 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:00:18 firewall systemd[1]: Started Session 158 of user admin.
+Mar 15 10:00:20 webserver kernel: [416571.566] eth0: link up at 1000 Mbps
+Mar 15 10:00:23 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:27 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:00:27 gateway sshd[7721]: Failed password for invalid user test from 203.0.113.50 port 22
+Mar 15 10:00:28 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:30 webserver kernel: [418033.261] eth0: link up at 1000 Mbps
+Mar 15 10:00:32 gateway sshd[22548]: Accepted publickey for admin from 192.168.1.10 port 50603 ssh2
+Mar 15 10:00:34 webserver kernel: [411241.566] eth0: link up at 1000 Mbps
+Mar 15 10:00:39 gateway sshd[8200]: Connection closed by 203.0.113.50 port 22 [preauth]
+Mar 15 10:00:40 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:41 gateway sshd[8944]: Accepted publickey for admin from 192.168.1.10 port 56546 ssh2
+Mar 15 10:00:43 webserver kernel: [413798.406] eth0: link up at 1000 Mbps
+Mar 15 10:00:44 gateway sshd[2034]: Accepted publickey for admin from 192.168.1.10 port 55403 ssh2
+Mar 15 10:00:50 firewall CRON[27079]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:00:50 webserver kernel: [423603.659] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:00:52 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:00:55 firewall CRON[18168]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:00:55 webserver kernel: [416044.395] eth0: link up at 1000 Mbps
+Mar 15 10:00:56 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:00:56 firewall systemd[1]: Started Session 415 of user admin.
+Mar 15 10:01:12 firewall systemd[1]: Started Session 305 of user admin.
+Mar 15 10:01:12 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:13 firewall CRON[14181]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:17 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:01:18 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:01:20 firewall CRON[29626]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:22 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:24 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:01:26 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:01:27 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:27 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:01:29 firewall CRON[15736]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:29 firewall systemd[1]: Started Session 440 of user admin.
+Mar 15 10:01:30 gateway sshd[16696]: Accepted publickey for admin from 192.168.1.10 port 59609 ssh2
+Mar 15 10:01:30 firewall CRON[9570]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:33 firewall CRON[19432]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:33 gateway sshd[11006]: Accepted publickey for admin from 192.168.1.10 port 53784 ssh2
+Mar 15 10:01:34 webserver kernel: [417469.450] eth0: link up at 1000 Mbps
+Mar 15 10:01:35 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:36 firewall CRON[26189]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:37 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:38 webserver kernel: [423444.892] Out of memory: Killed process 4521 (java)
+Mar 15 10:01:42 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:01:43 firewall CRON[16819]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:01:48 gateway sshd[7721]: Failed password for invalid user test from 203.0.113.50 port 22
+Mar 15 10:01:50 firewall systemd[1]: Started Session 299 of user admin.
+Mar 15 10:01:52 webserver kernel: [411395.221] eth0: link up at 1000 Mbps
+Mar 15 10:01:52 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:01:53 gateway sshd[17361]: Accepted publickey for admin from 192.168.1.10 port 60213 ssh2
+Mar 15 10:01:56 firewall systemd[1]: Started Session 462 of user admin.
+Mar 15 10:01:56 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:01:58 gateway sshd[19090]: Accepted publickey for admin from 192.168.1.10 port 61625 ssh2
+Mar 15 10:02:00 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50000 ssh2
+Mar 15 10:02:00 firewall systemd[1]: Started Session 72 of user admin.
+Mar 15 10:02:02 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:02:03 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50001 ssh2
+Mar 15 10:02:03 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:02:04 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:02:06 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50002 ssh2
+Mar 15 10:02:09 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50003 ssh2
+Mar 15 10:02:09 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:11 firewall systemd[1]: Started Session 416 of user admin.
+Mar 15 10:02:12 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50004 ssh2
+Mar 15 10:02:12 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:13 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:02:13 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:14 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:15 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50005 ssh2
+Mar 15 10:02:17 firewall CRON[19310]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:02:18 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50006 ssh2
+Mar 15 10:02:19 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:02:19 webserver kernel: [411784.625] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:21 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50007 ssh2
+Mar 15 10:02:23 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:02:23 webserver kernel: [429785.115] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:24 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50008 ssh2
+Mar 15 10:02:25 gateway sshd[27712]: Accepted publickey for admin from 192.168.1.10 port 65371 ssh2
+Mar 15 10:02:27 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50009 ssh2
+Mar 15 10:02:30 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50010 ssh2
+Mar 15 10:02:30 webserver kernel: [414322.337] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:33 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50011 ssh2
+Mar 15 10:02:33 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:34 webserver kernel: [413971.573] eth0: link up at 1000 Mbps
+Mar 15 10:02:35 webserver kernel: [416892.243] eth0: link up at 1000 Mbps
+Mar 15 10:02:36 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50012 ssh2
+Mar 15 10:02:36 webserver kernel: [414357.839] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:37 webserver kernel: [418486.214] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:39 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50013 ssh2
+Mar 15 10:02:39 gateway sshd[9110]: Accepted publickey for admin from 192.168.1.10 port 58184 ssh2
+Mar 15 10:02:40 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:40 firewall CRON[6736]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:02:42 gateway sshd[9901]: Failed password for root from 10.99.88.77 port 50014 ssh2
+Mar 15 10:02:42 firewall CRON[25903]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:02:44 firewall systemd[1]: Started Session 59 of user admin.
+Mar 15 10:02:46 gateway sshd[9901]: Accepted password for root from 10.99.88.77 port 55555 ssh2
+Mar 15 10:02:47 gateway sshd[10752]: Accepted publickey for admin from 192.168.1.10 port 55944 ssh2
+Mar 15 10:02:48 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:02:49 firewall systemd[1]: Started Session 471 of user admin.
+Mar 15 10:02:53 webserver kernel: [406457.568] eth0: link up at 1000 Mbps
+Mar 15 10:02:53 webserver kernel: [428713.246] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:02:53 firewall CRON[14883]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:02:58 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:02:58 gateway sshd[16003]: Accepted publickey for admin from 192.168.1.10 port 49373 ssh2
+Mar 15 10:02:59 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:02:59 webserver kernel: [400404.398] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:03:03 firewall systemd[1]: Started Session 181 of user admin.
+Mar 15 10:03:07 webserver kernel: [423219.771] EXT4-fs warning: mounting unchecked fs
+Mar 15 10:03:07 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:03:07 gateway sshd[8200]: Connection closed by 203.0.113.50 port 22 [preauth]
+Mar 15 10:03:08 webserver kernel: [423231.177] nf_conntrack: table full, dropping packet
+Mar 15 10:03:10 gateway sshd[7721]: Failed password for invalid user test from 203.0.113.50 port 22
+Mar 15 10:03:10 firewall systemd[1]: Failed to start Apache HTTP Server.
+Mar 15 10:03:11 firewall CRON[4283]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:03:15 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:03:21 webserver kernel: [407930.358] eth0: link up at 1000 Mbps
+Mar 15 10:03:22 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:03:23 webserver kernel: [424239.243] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:03:24 firewall CRON[24829]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:03:25 webserver kernel: [409867.374] eth0: link up at 1000 Mbps
+Mar 15 10:03:27 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:03:27 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:03:30 webserver kernel: [423310.429] eth0: link up at 1000 Mbps
+Mar 15 10:03:30 firewall systemd[1]: Started Session 433 of user admin.
+Mar 15 10:03:31 gateway sshd[10120]: Accepted publickey for admin from 192.168.1.10 port 51202 ssh2
+Mar 15 10:03:31 gateway sshd[19379]: Accepted publickey for admin from 192.168.1.10 port 61499 ssh2
+Mar 15 10:03:33 firewall systemd[1]: Started Session 79 of user admin.
+Mar 15 10:03:34 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:03:35 firewall CRON[25137]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:03:36 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:03:36 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:03:41 webserver kernel: [402998.105] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:03:44 gateway sshd[7621]: Accepted publickey for admin from 192.168.1.10 port 58052 ssh2
+Mar 15 10:03:44 firewall systemd[1]: Failed to start Apache HTTP Server.
+Mar 15 10:03:46 firewall CRON[5591]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:03:46 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:03:47 gateway sshd[25964]: Accepted publickey for admin from 192.168.1.10 port 51834 ssh2
+Mar 15 10:03:48 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:03:50 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:03:54 webserver kernel: [408080.838] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:03:55 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:03:55 webserver kernel: [413377.252] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:03:58 webserver kernel: [423111.539] nf_conntrack: table full, dropping packet
+Mar 15 10:03:59 firewall systemd[1]: Started Session 435 of user admin.
+Mar 15 10:03:59 webserver kernel: [421538.542] eth0: link up at 1000 Mbps
+Mar 15 10:04:01 firewall CRON[19428]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:04:01 webserver kernel: [403156.636] eth0: link up at 1000 Mbps
+Mar 15 10:04:02 webserver kernel: [415037.763] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:04:04 firewall CRON[19680]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:04:04 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:04:07 gateway sshd[8200]: Connection closed by 203.0.113.50 port 22 [preauth]
+Mar 15 10:04:08 firewall systemd[1]: Failed to start Apache HTTP Server.
+Mar 15 10:04:08 gateway sshd[19766]: Accepted publickey for admin from 192.168.1.10 port 59903 ssh2
+Mar 15 10:04:14 firewall systemd[1]: Started Session 371 of user admin.
+Mar 15 10:04:14 gateway sshd[7721]: Failed password for invalid user test from 203.0.113.50 port 22
+Mar 15 10:04:14 firewall systemd[1]: Started Session 410 of user admin.
+Mar 15 10:04:16 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:04:18 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
+Mar 15 10:04:26 webserver kernel: [415336.379] eth0: link up at 1000 Mbps
+Mar 15 10:04:28 webserver kernel: [423023.201] Out of memory: Killed process 4521 (java)
+Mar 15 10:04:29 firewall CRON[6877]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:04:30 firewall systemd[1]: Finished Daily man-db regeneration.
+Mar 15 10:04:31 firewall kernel: [423026.505] possible SYN flooding on port 443. Sending cookies.
+Mar 15 10:04:32 gateway sshd[8100]: Invalid user admin from 203.0.113.50 port 22
+Mar 15 10:04:38 webserver kernel: [421014.656] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:04:38 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:04:38 firewall kernel: [423225.567] possible SYN flooding on port 443. Sending cookies.
+Mar 15 10:04:39 webserver kernel: [420201.857] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:04:39 gateway sshd[8100]: Invalid user admin from 203.0.113.50 port 22
+Mar 15 10:04:40 firewall CRON[28400]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:04:40 firewall systemd[1]: Started Session 17 of user admin.
+Mar 15 10:04:40 firewall systemd[1]: Starting Daily apt download activities...
+Mar 15 10:04:41 firewall systemd[1]: Started Session 387 of user admin.
+Mar 15 10:04:43 firewall CRON[26045]: (root) CMD (/usr/bin/periodic daily)
+Mar 15 10:04:44 webserver kernel: [412448.923] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.
+Mar 15 10:04:48 webserver kernel: [423354.940] eth0: link up at 1000 Mbps
+Mar 15 10:04:56 firewall systemd[1]: Started Session 425 of user admin.
+Mar 15 10:04:57 gateway dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1
