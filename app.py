@@ -1,12 +1,12 @@
 """Network Threat Analyzer — Streamlit dashboard for interactive threat analysis."""
 
 import os
+import time
 import tempfile
 
 import streamlit as st
 import pandas as pd
 
-from agents.orchestrator import ThreatAnalysisOrchestrator
 from agents.pcap_parser import PcapParser
 from agents.log_parser import LogParser
 from agents.feature_extractor import FeatureExtractor
@@ -15,14 +15,10 @@ from agents.anomaly_detector import AnomalyDetector
 from agents.threat_classifier import ThreatClassifier
 from agents.mock_data import (
     get_mock_report,
-    get_mock_summary,
     get_mock_protocol_dist,
     get_mock_timeline,
     get_mock_anomaly_scores,
 )
-from utils.visualization import ChartGenerator
-from utils.report_generator import ReportGenerator
-from models.reports import AnalysisSummary
 
 st.set_page_config(page_title="Network Threat Analyzer", page_icon="🛡", layout="wide")
 
@@ -45,7 +41,6 @@ st.sidebar.markdown("---")
 
 with st.sidebar.expander("Settings"):
     sensitivity = st.sidebar.slider("Anomaly Sensitivity", 0.01, 0.15, 0.05, 0.01)
-    window_size = st.sidebar.selectbox("Time Window", [30, 60, 120], index=1)
 
 # ---------------------------------------------------------------------------
 # Helper — build threat table
@@ -126,27 +121,12 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
                 st.metric(proto, count)
 
         st.subheader("Traffic Timeline")
-        df_timeline = pd.DataFrame(timeline)
-        if "timestamp" in df_timeline.columns:
-            df_timeline = df_timeline.set_index("timestamp")
+        df_timeline = pd.DataFrame(timeline, columns=["Time", "Packets/s"]).set_index("Time")
         st.line_chart(df_timeline)
 
         st.subheader("Anomaly Scores")
-        df_anomaly = pd.DataFrame(anomaly_scores)
-        if "timestamp" in df_anomaly.columns:
-            df_anomaly = df_anomaly.set_index("timestamp")
+        df_anomaly = pd.DataFrame(anomaly_scores, columns=["Time", "Score"]).set_index("Time")
         st.line_chart(df_anomaly)
-
-    # --- Report download ---
-    st.markdown("---")
-    report_gen = ReportGenerator()
-    docx_bytes = report_gen.generate_docx(threat_report)
-    st.download_button(
-        label="Download DOCX Report",
-        data=docx_bytes,
-        file_name="threat_report.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -154,36 +134,52 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
 # ---------------------------------------------------------------------------
 
 
-def run_analysis(file_paths, sensitivity_val, window):
-    orchestrator = ThreatAnalysisOrchestrator(
-        pcap_parser=PcapParser(),
-        log_parser=LogParser(),
-        feature_extractor=FeatureExtractor(),
-        rule_engine=RuleEngine(),
-        anomaly_detector=AnomalyDetector(sensitivity=sensitivity_val),
-        threat_classifier=ThreatClassifier(),
-    )
+def run_analysis(file_paths):
+    start_time = time.time()
 
     with st.spinner("Parsing input files..."):
-        parsed = orchestrator.parse(file_paths)
+        parse_result = None
+        log_result = None
+        for fp in file_paths:
+            ext = os.path.splitext(fp)[1].lower()
+            if ext in (".pcap", ".pcapng") and parse_result is None:
+                parse_result = PcapParser().parse(fp)
+            elif ext == ".log" and log_result is None:
+                log_result = LogParser().parse(fp)
+
+        if parse_result is None:
+            st.error("At least one PCAP file is required.")
+            return None, None, None, None
 
     with st.spinner("Extracting features..."):
-        features = orchestrator.extract_features(parsed)
+        feature_matrix = FeatureExtractor().extract(parse_result, log_result)
 
     with st.spinner("Running rule-based detection..."):
-        rule_hits = orchestrator.apply_rules(features)
+        rule_alerts = RuleEngine().analyze(parse_result, log_result)
 
     with st.spinner("Running anomaly detection..."):
-        anomalies = orchestrator.detect_anomalies(features, window_size=window)
+        anomaly_alerts = AnomalyDetector(sensitivity=sensitivity).detect(feature_matrix)
 
     with st.spinner("Classifying threats..."):
-        report = orchestrator.classify(rule_hits, anomalies, features)
+        duration = time.time() - start_time
+        threat_report = ThreatClassifier().classify(
+            rule_alerts, anomaly_alerts,
+            parse_result.packet_count, parse_result.time_range, duration,
+        )
 
-    protocol_dist = features.protocol_distribution
-    timeline_data = features.traffic_timeline
-    anomaly_data = features.anomaly_scores
+    protocol_dist = parse_result.protocol_distribution
 
-    return report, protocol_dist, timeline_data, anomaly_data
+    pps_idx = feature_matrix.feature_names.index("packets_per_second")
+    timeline_data = [
+        (ws, float(feature_matrix.features[i][pps_idx]))
+        for i, ws in enumerate(feature_matrix.window_starts)
+    ]
+
+    anomaly_data = [
+        (a.time_window_start, a.anomaly_score) for a in anomaly_alerts
+    ]
+
+    return threat_report, protocol_dist, timeline_data, anomaly_data
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +205,9 @@ elif uploaded_files:
                 f.write(uf.getbuffer())
             file_paths.append(path)
 
-        report, proto, tl, anom = run_analysis(file_paths, sensitivity, window_size)
+        report, proto, tl, anom = run_analysis(file_paths)
+        if report is None:
+            st.stop()
 
     st.session_state.last_report = report
     st.session_state.last_proto = proto
