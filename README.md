@@ -2,6 +2,7 @@
 
 Multi-agent network threat detection system combining rule-based signature matching with ML anomaly detection to analyze PCAP files and server logs.
 
+![CI](https://github.com/eugen-goebel/network-threat-analyzer/actions/workflows/tests.yml/badge.svg)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![Tests](https://img.shields.io/badge/Tests-54+-passing?color=brightgreen)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5+-F7931E?logo=scikit-learn&logoColor=white)
