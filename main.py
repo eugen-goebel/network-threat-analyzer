@@ -39,11 +39,20 @@ def main():
         default="output",
         help="Output directory",
     )
+    parser.add_argument(
+        "--format",
+        choices=["docx", "pdf"],
+        default="docx",
+        help="Report output format (default: docx)",
+    )
 
     args = parser.parse_args()
 
     try:
-        orchestrator = ThreatAnalysisOrchestrator(output_dir=args.output)
+        orchestrator = ThreatAnalysisOrchestrator(
+            output_dir=args.output,
+            report_format=args.format,
+        )
 
         if args.demo:
             orchestrator.run_demo()

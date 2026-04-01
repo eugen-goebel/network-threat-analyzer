@@ -18,13 +18,15 @@ from agents.mock_data import (
 )
 from utils.visualization import ChartGenerator
 from utils.report_generator import ReportGenerator
+from utils.pdf_report_generator import PDFReportGenerator
 from models.reports import AnalysisSummary
 
 
 class ThreatAnalysisOrchestrator:
 
-    def __init__(self, output_dir: str = "output"):
+    def __init__(self, output_dir: str = "output", report_format: str = "docx"):
         self.output_dir = output_dir
+        self.report_format = report_format
 
     def run(self, filepaths: list[str]) -> str:
         start_time = time.time()
@@ -105,7 +107,10 @@ class ThreatAnalysisOrchestrator:
         chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
         viz = chart_gen.generate_all(threat_report, parse_result.protocol_distribution, traffic_timeline, anomaly_scores)
 
-        report_gen = ReportGenerator(self.output_dir)
+        if self.report_format == "pdf":
+            report_gen = PDFReportGenerator(self.output_dir)
+        else:
+            report_gen = ReportGenerator(self.output_dir)
         report_path = report_gen.generate(summary, viz)
 
         print(f"  Report saved to {report_path}")
@@ -127,7 +132,10 @@ class ThreatAnalysisOrchestrator:
             get_mock_anomaly_scores(),
         )
 
-        report_gen = ReportGenerator(self.output_dir)
+        if self.report_format == "pdf":
+            report_gen = PDFReportGenerator(self.output_dir)
+        else:
+            report_gen = ReportGenerator(self.output_dir)
         report_path = report_gen.generate(mock_summary, viz)
 
         print(f"  Threats detected: {mock_report.total_threats}")
