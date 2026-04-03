@@ -45,6 +45,42 @@ def main():
         default="docx",
         help="Report output format (default: docx)",
     )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Capture live network traffic instead of reading files",
+    )
+    parser.add_argument(
+        "--interface",
+        type=str,
+        default=None,
+        help="Network interface for live capture (e.g., en0, eth0)",
+    )
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=30,
+        help="Capture duration in seconds (default: 30, max: 300)",
+    )
+    parser.add_argument(
+        "--max-packets",
+        type=int,
+        default=10000,
+        help="Maximum number of packets to capture (default: 10000)",
+    )
+    parser.add_argument(
+        "--filter",
+        type=str,
+        default="",
+        dest="bpf_filter",
+        help="BPF filter for live capture (e.g., 'tcp port 80')",
+    )
+    parser.add_argument(
+        "--save-pcap",
+        type=str,
+        default=None,
+        help="Save live capture to a PCAP file",
+    )
 
     args = parser.parse_args()
 
@@ -54,7 +90,15 @@ def main():
             report_format=args.format,
         )
 
-        if args.demo:
+        if args.live:
+            orchestrator.run_live(
+                interface=args.interface,
+                duration=args.duration,
+                max_packets=args.max_packets,
+                bpf_filter=args.bpf_filter,
+                save_path=args.save_pcap,
+            )
+        elif args.demo:
             orchestrator.run_demo()
         elif args.files:
             orchestrator.run(args.files)
