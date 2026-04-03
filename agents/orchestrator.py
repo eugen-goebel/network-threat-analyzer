@@ -4,6 +4,7 @@ import os
 import time
 
 from agents.pcap_parser import PcapParser
+from agents.live_capture import LiveCaptureAgent
 from agents.log_parser import LogParser
 from agents.feature_extractor import FeatureExtractor
 from agents.rule_engine import RuleEngine
@@ -115,6 +116,114 @@ class ThreatAnalysisOrchestrator:
 
         print(f"  Report saved to {report_path}")
         print(f"\nAnalysis complete in {duration:.1f}s")
+        return report_path
+
+    def run_live(
+        self,
+        interface: str | None = None,
+        duration: int = 30,
+        max_packets: int = 10000,
+        bpf_filter: str = "",
+        save_path: str | None = None,
+    ) -> str:
+        """
+        Capture live traffic and run the full analysis pipeline.
+
+        Args:
+            interface:   Network interface name
+            duration:    Capture duration in seconds
+            max_packets: Maximum packets to capture
+            bpf_filter:  BPF filter expression
+            save_path:   Path to save captured PCAP
+
+        Returns:
+            Path to the generated report
+        """
+        start_time = time.time()
+
+        iface_label = interface or "default"
+        print(f"\n[1/7] Capturing live traffic on {iface_label} "
+              f"(max {duration}s, {max_packets} packets)...")
+        if bpf_filter:
+            print(f"  Filter: {bpf_filter}")
+
+        agent = LiveCaptureAgent()
+        parse_result = agent.capture(
+            interface=interface,
+            duration=duration,
+            max_packets=max_packets,
+            bpf_filter=bpf_filter,
+            save_path=save_path,
+        )
+
+        print(f"  Captured {parse_result.packet_count} packets, "
+              f"{parse_result.unique_src_ips} unique sources")
+
+        if save_path:
+            print(f"  Saved to {save_path}")
+
+        # Remaining phases are identical to file-based analysis
+        print("\n[3/7] Extracting features...")
+        extractor = FeatureExtractor()
+        feature_matrix = extractor.extract(parse_result, None)
+        print(f"  {len(feature_matrix.window_starts)} time windows, "
+              f"{len(feature_matrix.feature_names)} features")
+
+        print("\n[4/7] Running rule-based detection...")
+        engine = RuleEngine()
+        rule_alerts = engine.analyze(parse_result, None)
+        print(f"  {len(rule_alerts)} rule-based alerts")
+
+        print("\n[5/7] Running ML anomaly detection...")
+        detector = AnomalyDetector()
+        anomaly_alerts = detector.detect(feature_matrix)
+        print(f"  {len(anomaly_alerts)} anomalous time windows")
+
+        print("\n[6/7] Classifying threats...")
+        classifier = ThreatClassifier()
+        elapsed = time.time() - start_time
+        threat_report = classifier.classify(
+            rule_alerts, anomaly_alerts,
+            parse_result.packet_count, parse_result.time_range, elapsed,
+        )
+        print(f"  {threat_report.total_threats} threats identified "
+              f"({threat_report.critical_count} critical)")
+
+        print("\n[7/7] Generating report...")
+        summary = AnalysisSummary(
+            source_files=[f"live:{iface_label}"],
+            total_packets=parse_result.packet_count,
+            total_log_entries=0,
+            time_range=parse_result.time_range,
+            unique_ips=parse_result.unique_src_ips + parse_result.unique_dst_ips,
+            protocol_breakdown=parse_result.protocol_distribution,
+            threat_summary=threat_report,
+        )
+
+        pps_idx = feature_matrix.feature_names.index("packets_per_second")
+        traffic_timeline = [
+            (ws, float(feature_matrix.features[i][pps_idx]))
+            for i, ws in enumerate(feature_matrix.window_starts)
+        ]
+        anomaly_scores = [
+            (a.time_window_start, a.anomaly_score)
+            for a in anomaly_alerts
+        ]
+
+        chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
+        viz = chart_gen.generate_all(
+            threat_report, parse_result.protocol_distribution,
+            traffic_timeline, anomaly_scores,
+        )
+
+        if self.report_format == "pdf":
+            report_gen = PDFReportGenerator(self.output_dir)
+        else:
+            report_gen = ReportGenerator(self.output_dir)
+        report_path = report_gen.generate(summary, viz)
+
+        print(f"  Report saved to {report_path}")
+        print(f"\nLive analysis complete in {elapsed:.1f}s")
         return report_path
 
     def run_demo(self) -> str:
