@@ -2,7 +2,7 @@
 
 from models.network import ParseResult, LogParseResult
 from models.threats import RuleAlert
-from rules import port_scan, ddos, brute_force, suspicious_connections
+from rules import port_scan, ddos, brute_force, suspicious_connections, dns_tunneling
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
@@ -28,6 +28,9 @@ class RuleEngine:
         )
         alerts.extend(
             suspicious_connections.detect(parse_result.packets, parse_result.flows)
+        )
+        alerts.extend(
+            dns_tunneling.detect(parse_result.packets, parse_result.flows)
         )
 
         alerts.sort(key=lambda a: SEVERITY_ORDER.get(a.severity, 99))
