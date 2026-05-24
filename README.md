@@ -76,6 +76,8 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | C2 Beaconing | Regular-interval connections (std dev < 5s) | Critical |
 | Data Exfiltration | >10MB outbound from internal to external IP | High |
 | Malicious Ports | Traffic on known backdoor ports (4444, 1337, ...) | High |
+| DNS Tunneling (Volume) | >100 DNS queries from single source in 60s | High |
+| DNS Tunneling (Oversized) | ≥20 DNS packets with payload >100 bytes per source | High |
 
 ### ML Anomaly Detection
 
