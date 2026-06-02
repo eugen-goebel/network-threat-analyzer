@@ -13,10 +13,10 @@ Multi-agent network threat detection system combining rule-based signature match
 
 ## Screenshots
 
-**Start Screen** — upload PCAP/log files or load demo data; rule-based + ML detection
+**Start Screen**: upload PCAP/log files or load demo data; rule-based + ML detection
 ![Start](docs/screenshots/01-start.png)
 
-**Threat Analysis** — severity-ranked threat overview with rule and ML-based detections
+**Threat Analysis**: severity-ranked threat overview with rule and ML-based detections
 ![Threat Analysis](docs/screenshots/02-threat-analysis.png)
 
 ---
@@ -55,7 +55,7 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | **Threat Classifier** | Merges detections, deduplicates, and assigns severity scores | Pydantic |
 | **Report Generator** | Creates professional DOCX reports with embedded charts | python-docx, matplotlib |
 
-> No API key required — all analysis runs locally using unsupervised machine learning.
+> No API key required, all analysis runs locally using unsupervised machine learning.
 
 ---
 
@@ -87,7 +87,7 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | Local Outlier Factor | Local density-based anomalies | 0.35 |
 | One-Class SVM | Decision boundary for normal behavior | 0.25 |
 
-Ensemble uses majority voting — a time window is flagged when 2+ models agree.
+Ensemble uses majority voting: a time window is flagged when 2+ models agree.
 
 ---
 
