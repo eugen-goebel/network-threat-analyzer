@@ -9,7 +9,6 @@ Requires elevated privileges (root/admin) for raw socket access.
 """
 
 import os
-import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from threading import Event
@@ -84,9 +83,8 @@ class LiveCaptureAgent:
             captured = sniff(**sniff_kwargs)
         except PermissionError:
             raise PermissionError(
-                "Packet capture requires elevated privileges. "
-                "Run with sudo or as administrator."
-            )
+                "Packet capture requires elevated privileges. Run with sudo or as administrator."
+            ) from None
 
         self._raw_packets = list(captured)
 
@@ -95,9 +93,7 @@ class LiveCaptureAgent:
             wrpcap(save_path, self._raw_packets)
 
         if not self._records:
-            raise ValueError(
-                "No IP packets captured. Check the interface name and filters."
-            )
+            raise ValueError("No IP packets captured. Check the interface name and filters.")
 
         flows = self._build_flows()
         protocol_dist = self._count_protocols()
@@ -105,8 +101,7 @@ class LiveCaptureAgent:
         unique_src = {r.src_ip for r in self._records}
         unique_dst = {r.dst_ip for r in self._records}
         time_range = (
-            f"{self._records[0].timestamp} – {self._records[-1].timestamp}"
-            if self._records else ""
+            f"{self._records[0].timestamp} – {self._records[-1].timestamp}" if self._records else ""
         )
 
         source_label = f"live:{interface or 'default'}"
@@ -175,18 +170,20 @@ class LiveCaptureAgent:
             end_dt = datetime.fromisoformat(end)
             duration_sec = (end_dt - start_dt).total_seconds()
 
-            flows.append(ConnectionFlow(
-                src_ip=src_ip,
-                dst_ip=dst_ip,
-                src_port=src_port,
-                dst_port=dst_port,
-                protocol=protocol,
-                packet_count=len(pkts),
-                total_bytes=sum(p.size for p in pkts),
-                duration_seconds=duration_sec,
-                start_time=start,
-                end_time=end,
-            ))
+            flows.append(
+                ConnectionFlow(
+                    src_ip=src_ip,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port,
+                    protocol=protocol,
+                    packet_count=len(pkts),
+                    total_bytes=sum(p.size for p in pkts),
+                    duration_seconds=duration_sec,
+                    start_time=start,
+                    end_time=end,
+                )
+            )
         return flows
 
     def _count_protocols(self) -> dict[str, int]:

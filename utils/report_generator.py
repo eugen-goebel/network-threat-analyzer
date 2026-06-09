@@ -4,12 +4,11 @@ import os
 from datetime import datetime
 
 from docx import Document
-from docx.shared import Inches, Pt, Cm, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
 
-from models.threats import ThreatReport, ClassifiedThreat
 from models.reports import AnalysisSummary, VisualizationResult
 
 DARK_BLUE = RGBColor(0x1A, 0x23, 0x7E)
@@ -28,7 +27,6 @@ SEVERITY_COLORS = {
 
 
 class ReportGenerator:
-
     def __init__(self, output_dir: str = "output"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
@@ -137,14 +135,19 @@ class ReportGenerator:
                         run.font.size = Pt(10)
 
     def _add_protocol_analysis(
-        self, doc: Document, summary: AnalysisSummary, viz: VisualizationResult,
+        self,
+        doc: Document,
+        summary: AnalysisSummary,
+        viz: VisualizationResult,
     ):
         doc.add_heading("Protocol Analysis", level=1)
 
         total = sum(summary.protocol_breakdown.values()) or 1
         lines = []
         for proto, count in sorted(
-            summary.protocol_breakdown.items(), key=lambda x: x[1], reverse=True,
+            summary.protocol_breakdown.items(),
+            key=lambda x: x[1],
+            reverse=True,
         ):
             pct = count / total * 100
             lines.append(f"{proto}: {count:,} packets ({pct:.1f}%)")
@@ -305,8 +308,11 @@ class ReportGenerator:
 
     def _set_cell_bg(self, cell, hex_color: str):
         shading_elm = cell._element.get_or_add_tcPr()
-        shading = shading_elm.makeelement(qn("w:shd"), {
-            qn("w:fill"): hex_color,
-            qn("w:val"): "clear",
-        })
+        shading = shading_elm.makeelement(
+            qn("w:shd"),
+            {
+                qn("w:fill"): hex_color,
+                qn("w:val"): "clear",
+            },
+        )
         shading_elm.append(shading)

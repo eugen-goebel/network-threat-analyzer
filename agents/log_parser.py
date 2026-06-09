@@ -13,19 +13,28 @@ _APACHE_RE = re.compile(
 )
 _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _SYSLOG_MONTHS = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 }
 _SCAN_PATHS = {"/admin", "/wp-admin", "/phpmyadmin", "/.env", "/config"}
 
 
 class LogParser:
-
     def parse(self, filepath: str) -> LogParseResult:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Log file not found: {filepath}")
 
-        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+        with open(filepath, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         fmt = self._detect_format(lines)
@@ -60,14 +69,16 @@ class LogParser:
             ip_match = _IP_RE.search(message)
             source_ip = ip_match.group(0) if ip_match else hostname
 
-            entries.append(LogEntry(
-                timestamp=timestamp,
-                source_ip=source_ip,
-                message=message,
-                severity=severity,
-                service=service,
-                raw_line=line.strip(),
-            ))
+            entries.append(
+                LogEntry(
+                    timestamp=timestamp,
+                    source_ip=source_ip,
+                    message=message,
+                    severity=severity,
+                    service=service,
+                    raw_line=line.strip(),
+                )
+            )
 
         error_entries = [e for e in entries if e.severity in ("critical", "high")]
         time_range = self._time_range(entries)
@@ -93,14 +104,16 @@ class LogParser:
             severity = self._apache_severity(status, path)
             message = f"{method} {path} \u2192 {status}"
 
-            entries.append(LogEntry(
-                timestamp=timestamp,
-                source_ip=ip,
-                message=message,
-                severity=severity,
-                service="httpd",
-                raw_line=line.strip(),
-            ))
+            entries.append(
+                LogEntry(
+                    timestamp=timestamp,
+                    source_ip=ip,
+                    message=message,
+                    severity=severity,
+                    service="httpd",
+                    raw_line=line.strip(),
+                )
+            )
 
         error_entries = [e for e in entries if e.severity in ("critical", "high", "medium")]
         time_range = self._time_range(entries)

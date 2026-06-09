@@ -4,7 +4,7 @@ import os
 import random
 from datetime import datetime, timedelta
 
-from scapy.all import IP, TCP, UDP, ICMP, DNS, DNSQR, Ether, wrpcap, Raw
+from scapy.all import DNS, DNSQR, IP, TCP, UDP, Raw, wrpcap
 
 random.seed(42)
 
@@ -17,11 +17,15 @@ def generate_pcap(filepath: str):
     # --- Normal traffic (~300 packets, spread over 5 minutes) ---
 
     normal_domains = [
-        b"example.com", b"google.com", b"github.com", b"cdn.jsdelivr.net",
-        b"api.internal.local", b"mail.company.org",
+        b"example.com",
+        b"google.com",
+        b"github.com",
+        b"cdn.jsdelivr.net",
+        b"api.internal.local",
+        b"mail.company.org",
     ]
 
-    for i in range(300):
+    for _ in range(300):
         offset = random.uniform(0, 300)
         src_host = random.randint(10, 50)
         roll = random.random()
@@ -68,7 +72,7 @@ def generate_pcap(filepath: str):
 
     # --- SYN flood pattern (~80 packets, within 10 seconds starting at +180s) ---
 
-    for i in range(80):
+    for _ in range(80):
         offset = 180 + random.uniform(0, 10)
         src_host = random.randint(1, 20)
         pkt = IP(src=f"172.16.0.{src_host}", dst="10.0.0.1") / TCP(
@@ -122,12 +126,15 @@ def generate_syslog(filepath: str):
         ("webserver", "kernel: [{uptime}] eth0: link up at 1000 Mbps"),
         ("gateway", "sshd[{pid}]: Accepted publickey for admin from 192.168.1.10 port {port} ssh2"),
         ("firewall", "systemd[1]: Starting Daily apt download activities..."),
-        ("webserver", "kernel: [{uptime}] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies."),
+        (
+            "webserver",
+            "kernel: [{uptime}] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.",
+        ),
         ("gateway", "dhclient[1234]: DHCPACK of 192.168.1.25 from 192.168.1.1"),
         ("firewall", "systemd[1]: Finished Daily man-db regeneration."),
     ]
 
-    for i in range(150):
+    for _ in range(150):
         offset = timedelta(seconds=random.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
         tmpl_hostname, tmpl_msg = random.choice(services_normal)
@@ -147,18 +154,22 @@ def generate_syslog(filepath: str):
         offset = timedelta(seconds=i * 3)
         ts = fmt_ts(brute_start + offset)
         port = base_port + i
-        lines.append((
-            brute_start + offset,
-            f"{ts} gateway sshd[9901]: Failed password for root from 10.99.88.77 port {port} ssh2",
-        ))
+        lines.append(
+            (
+                brute_start + offset,
+                f"{ts} gateway sshd[9901]: Failed password for root from 10.99.88.77 port {port} ssh2",
+            )
+        )
 
     # Successful login after brute force
     success_time = brute_start + timedelta(seconds=46)
     ts = fmt_ts(success_time)
-    lines.append((
-        success_time,
-        f"{ts} gateway sshd[9901]: Accepted password for root from 10.99.88.77 port 55555 ssh2",
-    ))
+    lines.append(
+        (
+            success_time,
+            f"{ts} gateway sshd[9901]: Accepted password for root from 10.99.88.77 port 55555 ssh2",
+        )
+    )
 
     # --- Error entries (~20 lines scattered) ---
 
@@ -173,7 +184,7 @@ def generate_syslog(filepath: str):
         ("gateway", "sshd[8200]: Connection closed by 203.0.113.50 port 22 [preauth]"),
     ]
 
-    for i in range(20):
+    for _ in range(20):
         offset = timedelta(seconds=random.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
         tmpl_hostname, tmpl_msg = random.choice(error_templates)
@@ -194,9 +205,16 @@ def generate_apache(filepath: str):
     lines = []
 
     normal_paths = [
-        "/", "/about", "/products", "/api/v1/data",
-        "/assets/style.css", "/images/logo.png",
-        "/contact", "/faq", "/api/v1/users", "/docs",
+        "/",
+        "/about",
+        "/products",
+        "/api/v1/data",
+        "/assets/style.css",
+        "/images/logo.png",
+        "/contact",
+        "/faq",
+        "/api/v1/users",
+        "/docs",
     ]
     normal_agents = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -211,7 +229,7 @@ def generate_apache(filepath: str):
 
     # --- Normal traffic (~220 lines) ---
 
-    for i in range(220):
+    for _i in range(220):
         offset = timedelta(seconds=random.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
         ip = f"192.168.1.{random.randint(10, 50)}"
@@ -243,7 +261,7 @@ def generate_apache(filepath: str):
         "/..%255c..%255c..%255cetc/passwd",
     ]
 
-    for i, path in enumerate(traversal_paths):
+    for _i, path in enumerate(traversal_paths):
         offset = timedelta(seconds=random.uniform(60, 120))
         ts = fmt_ts(base_time + offset)
         agent = random.choice(normal_agents)
@@ -253,19 +271,41 @@ def generate_apache(filepath: str):
     # --- 404 scanning (~30 lines) ---
 
     scan_paths = [
-        "/wp-admin", "/wp-login.php", "/phpmyadmin", "/pma",
-        "/.env", "/config.php", "/admin", "/backup.sql",
-        "/.git/config", "/server-status", "/.htaccess",
-        "/wp-content/uploads/", "/xmlrpc.php", "/administrator",
-        "/solr/admin", "/console", "/.svn/entries", "/debug",
-        "/api/config", "/.DS_Store", "/web.config",
-        "/actuator/health", "/graphql", "/swagger.json",
-        "/_config.yml", "/robots.txt.bak", "/sitemap.xml.gz",
-        "/phpinfo.php", "/info.php", "/test.php", "/dump.sql",
+        "/wp-admin",
+        "/wp-login.php",
+        "/phpmyadmin",
+        "/pma",
+        "/.env",
+        "/config.php",
+        "/admin",
+        "/backup.sql",
+        "/.git/config",
+        "/server-status",
+        "/.htaccess",
+        "/wp-content/uploads/",
+        "/xmlrpc.php",
+        "/administrator",
+        "/solr/admin",
+        "/console",
+        "/.svn/entries",
+        "/debug",
+        "/api/config",
+        "/.DS_Store",
+        "/web.config",
+        "/actuator/health",
+        "/graphql",
+        "/swagger.json",
+        "/_config.yml",
+        "/robots.txt.bak",
+        "/sitemap.xml.gz",
+        "/phpinfo.php",
+        "/info.php",
+        "/test.php",
+        "/dump.sql",
     ]
 
     scan_agent = "Mozilla/5.0 (compatible; Nmap Scripting Engine)"
-    for i, path in enumerate(scan_paths):
+    for _i, path in enumerate(scan_paths):
         offset = timedelta(seconds=random.uniform(30, 90))
         ts = fmt_ts(base_time + offset)
         line = f'203.0.113.50 - - [{ts}] "GET {path} HTTP/1.1" 404 196 "-" "{scan_agent}"'
@@ -274,7 +314,7 @@ def generate_apache(filepath: str):
     # --- HTTP flood (~40 lines within 5 seconds) ---
 
     flood_start = base_time + timedelta(seconds=200)
-    for i in range(40):
+    for _i in range(40):
         offset = timedelta(seconds=random.uniform(0, 5))
         ts = fmt_ts(flood_start + offset)
         ip = f"172.16.0.{random.randint(1, 15)}"

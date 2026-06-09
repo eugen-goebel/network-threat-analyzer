@@ -3,28 +3,27 @@
 import os
 import time
 
-from agents.pcap_parser import PcapParser
+from agents.anomaly_detector import AnomalyDetector
+from agents.feature_extractor import FeatureExtractor
 from agents.live_capture import LiveCaptureAgent
 from agents.log_parser import LogParser
-from agents.feature_extractor import FeatureExtractor
-from agents.rule_engine import RuleEngine
-from agents.anomaly_detector import AnomalyDetector
-from agents.threat_classifier import ThreatClassifier
 from agents.mock_data import (
+    get_mock_anomaly_scores,
+    get_mock_protocol_dist,
     get_mock_report,
     get_mock_summary,
-    get_mock_protocol_dist,
     get_mock_timeline,
-    get_mock_anomaly_scores,
 )
-from utils.visualization import ChartGenerator
-from utils.report_generator import ReportGenerator
-from utils.pdf_report_generator import PDFReportGenerator
+from agents.pcap_parser import PcapParser
+from agents.rule_engine import RuleEngine
+from agents.threat_classifier import ThreatClassifier
 from models.reports import AnalysisSummary
+from utils.pdf_report_generator import PDFReportGenerator
+from utils.report_generator import ReportGenerator
+from utils.visualization import ChartGenerator
 
 
 class ThreatAnalysisOrchestrator:
-
     def __init__(self, output_dir: str = "output", report_format: str = "docx"):
         self.output_dir = output_dir
         self.report_format = report_format
@@ -42,7 +41,9 @@ class ThreatAnalysisOrchestrator:
             if ext in (".pcap", ".pcapng") and parse_result is None:
                 print(f"  Parsing PCAP: {fp}")
                 parse_result = PcapParser().parse(fp)
-                print(f"  {parse_result.packet_count} packets, {parse_result.unique_src_ips} unique sources")
+                print(
+                    f"  {parse_result.packet_count} packets, {parse_result.unique_src_ips} unique sources"
+                )
             elif ext == ".log" and log_result is None:
                 print(f"  Parsing log: {fp}")
                 log_result = LogParser().parse(fp)
@@ -55,7 +56,9 @@ class ThreatAnalysisOrchestrator:
         print("\n[3/7] Extracting features...")
         extractor = FeatureExtractor()
         feature_matrix = extractor.extract(parse_result, log_result)
-        print(f"  {len(feature_matrix.window_starts)} time windows, {len(feature_matrix.feature_names)} features")
+        print(
+            f"  {len(feature_matrix.window_starts)} time windows, {len(feature_matrix.feature_names)} features"
+        )
 
         # Phase 4: Rule-based detection
         print("\n[4/7] Running rule-based detection...")
@@ -74,10 +77,15 @@ class ThreatAnalysisOrchestrator:
         classifier = ThreatClassifier()
         duration = time.time() - start_time
         threat_report = classifier.classify(
-            rule_alerts, anomaly_alerts,
-            parse_result.packet_count, parse_result.time_range, duration,
+            rule_alerts,
+            anomaly_alerts,
+            parse_result.packet_count,
+            parse_result.time_range,
+            duration,
         )
-        print(f"  {threat_report.total_threats} threats identified ({threat_report.critical_count} critical)")
+        print(
+            f"  {threat_report.total_threats} threats identified ({threat_report.critical_count} critical)"
+        )
 
         # Phase 7: Generate report
         print("\n[7/7] Generating report...")
@@ -100,13 +108,12 @@ class ThreatAnalysisOrchestrator:
             for i, ws in enumerate(feature_matrix.window_starts)
         ]
 
-        anomaly_scores = [
-            (a.time_window_start, a.anomaly_score)
-            for a in anomaly_alerts
-        ]
+        anomaly_scores = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
 
         chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
-        viz = chart_gen.generate_all(threat_report, parse_result.protocol_distribution, traffic_timeline, anomaly_scores)
+        viz = chart_gen.generate_all(
+            threat_report, parse_result.protocol_distribution, traffic_timeline, anomaly_scores
+        )
 
         if self.report_format == "pdf":
             report_gen = PDFReportGenerator(self.output_dir)
@@ -142,8 +149,10 @@ class ThreatAnalysisOrchestrator:
         start_time = time.time()
 
         iface_label = interface or "default"
-        print(f"\n[1/7] Capturing live traffic on {iface_label} "
-              f"(max {duration}s, {max_packets} packets)...")
+        print(
+            f"\n[1/7] Capturing live traffic on {iface_label} "
+            f"(max {duration}s, {max_packets} packets)..."
+        )
         if bpf_filter:
             print(f"  Filter: {bpf_filter}")
 
@@ -156,8 +165,10 @@ class ThreatAnalysisOrchestrator:
             save_path=save_path,
         )
 
-        print(f"  Captured {parse_result.packet_count} packets, "
-              f"{parse_result.unique_src_ips} unique sources")
+        print(
+            f"  Captured {parse_result.packet_count} packets, "
+            f"{parse_result.unique_src_ips} unique sources"
+        )
 
         if save_path:
             print(f"  Saved to {save_path}")
@@ -166,8 +177,10 @@ class ThreatAnalysisOrchestrator:
         print("\n[3/7] Extracting features...")
         extractor = FeatureExtractor()
         feature_matrix = extractor.extract(parse_result, None)
-        print(f"  {len(feature_matrix.window_starts)} time windows, "
-              f"{len(feature_matrix.feature_names)} features")
+        print(
+            f"  {len(feature_matrix.window_starts)} time windows, "
+            f"{len(feature_matrix.feature_names)} features"
+        )
 
         print("\n[4/7] Running rule-based detection...")
         engine = RuleEngine()
@@ -183,11 +196,16 @@ class ThreatAnalysisOrchestrator:
         classifier = ThreatClassifier()
         elapsed = time.time() - start_time
         threat_report = classifier.classify(
-            rule_alerts, anomaly_alerts,
-            parse_result.packet_count, parse_result.time_range, elapsed,
+            rule_alerts,
+            anomaly_alerts,
+            parse_result.packet_count,
+            parse_result.time_range,
+            elapsed,
         )
-        print(f"  {threat_report.total_threats} threats identified "
-              f"({threat_report.critical_count} critical)")
+        print(
+            f"  {threat_report.total_threats} threats identified "
+            f"({threat_report.critical_count} critical)"
+        )
 
         print("\n[7/7] Generating report...")
         summary = AnalysisSummary(
@@ -205,15 +223,14 @@ class ThreatAnalysisOrchestrator:
             (ws, float(feature_matrix.features[i][pps_idx]))
             for i, ws in enumerate(feature_matrix.window_starts)
         ]
-        anomaly_scores = [
-            (a.time_window_start, a.anomaly_score)
-            for a in anomaly_alerts
-        ]
+        anomaly_scores = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
 
         chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
         viz = chart_gen.generate_all(
-            threat_report, parse_result.protocol_distribution,
-            traffic_timeline, anomaly_scores,
+            threat_report,
+            parse_result.protocol_distribution,
+            traffic_timeline,
+            anomaly_scores,
         )
 
         if self.report_format == "pdf":

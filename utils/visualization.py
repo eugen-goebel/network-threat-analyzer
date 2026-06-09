@@ -3,13 +3,13 @@
 import os
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.colors
-import numpy as np
 
-from models.threats import ThreatReport, ClassifiedThreat
+matplotlib.use("Agg")
+import matplotlib.colors
+import matplotlib.pyplot as plt
+
 from models.reports import ChartConfig, VisualizationResult
+from models.threats import ThreatReport
 
 COLOR_CRITICAL = "#C62828"
 COLOR_HIGH = "#E65100"
@@ -20,7 +20,6 @@ COLOR_BG = "#FAFAFA"
 
 
 class ChartGenerator:
-
     def __init__(self, output_dir: str = "output/charts"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
@@ -38,9 +37,7 @@ class ChartGenerator:
         charts.append(self._protocol_pie(protocol_dist))
         charts.append(self._severity_bar(threat_report))
 
-        anomaly_times = [
-            ts for ts, score in anomaly_scores if score > 0.5
-        ]
+        anomaly_times = [ts for ts, score in anomaly_scores if score > 0.5]
         charts.append(self._traffic_timeline(traffic_timeline, anomaly_times))
         charts.append(self._anomaly_scatter(anomaly_scores))
 
@@ -139,11 +136,15 @@ class ChartGenerator:
         ax.set_facecolor(COLOR_BG)
 
         bars = ax.barh(categories, counts, color=colors, edgecolor="white", height=0.6)
-        for bar, count in zip(bars, counts):
+        for bar, count in zip(bars, counts, strict=False):
             if count > 0:
                 ax.text(
-                    bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
-                    str(count), va="center", fontsize=10, fontweight="bold",
+                    bar.get_width() + 0.3,
+                    bar.get_y() + bar.get_height() / 2,
+                    str(count),
+                    va="center",
+                    fontsize=10,
+                    fontweight="bold",
                 )
 
         ax.set_xlabel("Number of Threats", fontsize=10)
@@ -205,7 +206,9 @@ class ChartGenerator:
         ax = fig.add_subplot(111)
         ax.set_facecolor(COLOR_BG)
 
-        ax.scatter(indices, scores, c=point_colors, s=30, alpha=0.8, edgecolors="white", linewidths=0.5)
+        ax.scatter(
+            indices, scores, c=point_colors, s=30, alpha=0.8, edgecolors="white", linewidths=0.5
+        )
         ax.axhline(y=0.5, color=COLOR_CRITICAL, linestyle="--", linewidth=1, alpha=0.6)
 
         ax.set_xlabel("Time Window Index", fontsize=10)

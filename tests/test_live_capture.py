@@ -4,14 +4,13 @@ Note: Actual packet capture requires elevated privileges and a network
 interface. These tests verify the agent's internal logic using mock packets.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import patch
 
-from scapy.all import IP, TCP, UDP, DNS, Ether
+import pytest
+from scapy.all import DNS, IP, TCP, UDP, Ether
 
 from agents.live_capture import LiveCaptureAgent
-from models.network import PacketRecord, ParseResult
 
 
 @pytest.fixture
@@ -130,6 +129,7 @@ class TestPortExtraction:
 
     def test_no_ports_for_icmp(self, agent):
         from scapy.all import ICMP
+
         pkt = IP() / ICMP()
         src, dst = agent._extract_ports(pkt)
         assert src == 0

@@ -105,7 +105,6 @@ def pdf_generator(tmp_path):
 
 
 class TestPDFGeneration:
-
     def test_generate_creates_pdf(self, pdf_generator, analysis_summary, viz_result):
         filepath = pdf_generator.generate(analysis_summary, viz_result)
         assert os.path.exists(filepath)
@@ -156,9 +155,15 @@ class TestPDFGeneration:
             ),
         ]
         report = ThreatReport(
-            total_threats=1, critical_count=0, high_count=1, medium_count=0,
-            low_count=0, threats=threats, analysis_duration_seconds=2.0,
-            packets_analyzed=500, time_range_analyzed="2026-03-15T10:00:00 - 2026-03-15T10:05:00",
+            total_threats=1,
+            critical_count=0,
+            high_count=1,
+            medium_count=0,
+            low_count=0,
+            threats=threats,
+            analysis_duration_seconds=2.0,
+            packets_analyzed=500,
+            time_range_analyzed="2026-03-15T10:00:00 - 2026-03-15T10:05:00",
         )
         summary = AnalysisSummary(
             source_files=["capture.pcap"],
@@ -174,7 +179,6 @@ class TestPDFGeneration:
 
 
 class TestSanitize:
-
     def test_replaces_en_dash(self):
         assert _sanitize("2026\u201303\u201315") == "2026-03-15"
 

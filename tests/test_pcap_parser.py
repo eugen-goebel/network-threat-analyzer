@@ -7,7 +7,8 @@ from agents.pcap_parser import PcapParser
 
 @pytest.fixture
 def tmp_pcap(tmp_path):
-    from scapy.all import IP, TCP, UDP, ICMP, wrpcap
+    from scapy.all import ICMP, IP, TCP, UDP, wrpcap
+
     packets = [
         IP(src="192.168.1.1", dst="10.0.0.1") / TCP(sport=12345, dport=80, flags="S"),
         IP(src="192.168.1.1", dst="10.0.0.1") / TCP(sport=12345, dport=80, flags="SA"),

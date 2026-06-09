@@ -3,7 +3,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from models.network import PacketRecord, LogEntry
+from models.network import LogEntry, PacketRecord
 from models.threats import RuleAlert
 
 
@@ -37,21 +37,23 @@ def detect(packets: list[PacketRecord], log_entries: list[LogEntry]) -> list[Rul
     for src_ip, entries in ssh_by_src.items():
         timestamps = [datetime.fromisoformat(e.timestamp) for e in entries]
         for count, duration in _find_bursts(timestamps, threshold=5):
-            alerts.append(RuleAlert(
-                rule_name="ssh_brute_force",
-                severity="high",
-                category="BRUTE_FORCE",
-                description=f"SSH brute force from {src_ip}: {count} failed attempts in {duration:.0f}s",
-                source_ips=[src_ip],
-                dest_ips=[],
-                timestamps=[e.timestamp for e in entries],
-                evidence={
-                    "attack_type": "ssh",
-                    "attempts": count,
-                    "duration_seconds": duration,
-                    "target_service": "sshd",
-                },
-            ))
+            alerts.append(
+                RuleAlert(
+                    rule_name="ssh_brute_force",
+                    severity="high",
+                    category="BRUTE_FORCE",
+                    description=f"SSH brute force from {src_ip}: {count} failed attempts in {duration:.0f}s",
+                    source_ips=[src_ip],
+                    dest_ips=[],
+                    timestamps=[e.timestamp for e in entries],
+                    evidence={
+                        "attack_type": "ssh",
+                        "attempts": count,
+                        "duration_seconds": duration,
+                        "target_service": "sshd",
+                    },
+                )
+            )
 
     # --- HTTP brute force ---
     http_by_src: dict[str, list[LogEntry]] = defaultdict(list)
@@ -65,22 +67,24 @@ def detect(packets: list[PacketRecord], log_entries: list[LogEntry]) -> list[Rul
 
     for src_ip, entries in http_by_src.items():
         timestamps = [datetime.fromisoformat(e.timestamp) for e in entries]
-        for count, duration in _find_bursts(timestamps, threshold=10):
+        for count, _duration in _find_bursts(timestamps, threshold=10):
             paths = list({_extract_path(e.message) for e in entries})
-            alerts.append(RuleAlert(
-                rule_name="http_brute_force",
-                severity="high",
-                category="BRUTE_FORCE",
-                description=f"HTTP login brute force from {src_ip}: {count} attempts",
-                source_ips=[src_ip],
-                dest_ips=[],
-                timestamps=[e.timestamp for e in entries],
-                evidence={
-                    "attack_type": "http_login",
-                    "attempts": count,
-                    "paths_targeted": paths,
-                },
-            ))
+            alerts.append(
+                RuleAlert(
+                    rule_name="http_brute_force",
+                    severity="high",
+                    category="BRUTE_FORCE",
+                    description=f"HTTP login brute force from {src_ip}: {count} attempts",
+                    source_ips=[src_ip],
+                    dest_ips=[],
+                    timestamps=[e.timestamp for e in entries],
+                    evidence={
+                        "attack_type": "http_login",
+                        "attempts": count,
+                        "paths_targeted": paths,
+                    },
+                )
+            )
 
     return alerts
 
