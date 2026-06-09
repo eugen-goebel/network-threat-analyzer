@@ -13,3 +13,8 @@ venv/
 Thumbs.db
 output/*.docx
 output/charts/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
