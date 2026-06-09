@@ -2,13 +2,12 @@
 
 import argparse
 import sys
-import os
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from agents.orchestrator import ThreatAnalysisOrchestrator
+from agents.orchestrator import ThreatAnalysisOrchestrator  # noqa: E402
 
 BANNER = """
 ╔══════════════════════════════════════╗

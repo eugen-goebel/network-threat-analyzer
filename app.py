@@ -1,24 +1,24 @@
 """Network Threat Analyzer — Streamlit dashboard for interactive threat analysis."""
 
 import os
-import time
 import tempfile
+import time
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
-from agents.pcap_parser import PcapParser
-from agents.log_parser import LogParser
-from agents.feature_extractor import FeatureExtractor
-from agents.rule_engine import RuleEngine
 from agents.anomaly_detector import AnomalyDetector
-from agents.threat_classifier import ThreatClassifier
+from agents.feature_extractor import FeatureExtractor
+from agents.log_parser import LogParser
 from agents.mock_data import (
-    get_mock_report,
-    get_mock_protocol_dist,
-    get_mock_timeline,
     get_mock_anomaly_scores,
+    get_mock_protocol_dist,
+    get_mock_report,
+    get_mock_timeline,
 )
+from agents.pcap_parser import PcapParser
+from agents.rule_engine import RuleEngine
+from agents.threat_classifier import ThreatClassifier
 
 st.set_page_config(page_title="Network Threat Analyzer", page_icon="🛡", layout="wide")
 
@@ -163,8 +163,11 @@ def run_analysis(file_paths):
     with st.spinner("Classifying threats..."):
         duration = time.time() - start_time
         threat_report = ThreatClassifier().classify(
-            rule_alerts, anomaly_alerts,
-            parse_result.packet_count, parse_result.time_range, duration,
+            rule_alerts,
+            anomaly_alerts,
+            parse_result.packet_count,
+            parse_result.time_range,
+            duration,
         )
 
     protocol_dist = parse_result.protocol_distribution
@@ -175,9 +178,7 @@ def run_analysis(file_paths):
         for i, ws in enumerate(feature_matrix.window_starts)
     ]
 
-    anomaly_data = [
-        (a.time_window_start, a.anomaly_score) for a in anomaly_alerts
-    ]
+    anomaly_data = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
 
     return threat_report, protocol_dist, timeline_data, anomaly_data
 
@@ -236,24 +237,13 @@ else:
     with col1:
         st.subheader("Rule-Based Detection")
         st.markdown(
-            "- Port Scans\n"
-            "- DDoS Patterns\n"
-            "- Brute Force Attempts\n"
-            "- Suspicious Connections"
+            "- Port Scans\n- DDoS Patterns\n- Brute Force Attempts\n- Suspicious Connections"
         )
 
     with col2:
         st.subheader("ML Anomaly Detection")
-        st.markdown(
-            "- Isolation Forest\n"
-            "- Local Outlier Factor\n"
-            "- One-Class SVM"
-        )
+        st.markdown("- Isolation Forest\n- Local Outlier Factor\n- One-Class SVM")
 
     with col3:
         st.subheader("Professional Reports")
-        st.markdown(
-            "- DOCX Reports\n"
-            "- Interactive Charts\n"
-            "- Actionable Recommendations"
-        )
+        st.markdown("- DOCX Reports\n- Interactive Charts\n- Actionable Recommendations")

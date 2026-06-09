@@ -287,8 +287,10 @@ def test_detect_vertical_port_scan(engine, port_scan_parse_result):
 def test_detect_syn_scan(engine, port_scan_parse_result):
     alerts = engine.analyze(port_scan_parse_result)
     syn_alerts = [
-        a for a in alerts
-        if a.rule_name == "syn_scan" or (a.category == "PORT_SCAN" and a.evidence.get("scan_type") == "syn")
+        a
+        for a in alerts
+        if a.rule_name == "syn_scan"
+        or (a.category == "PORT_SCAN" and a.evidence.get("scan_type") == "syn")
     ]
     assert len(syn_alerts) >= 1
     assert syn_alerts[0].evidence.get("syn_ratio", 0) > 0.8
@@ -328,7 +330,8 @@ def test_detect_suspicious_port(engine, suspicious_port_parse_result):
 def test_detect_beaconing(engine, beaconing_parse_result):
     alerts = engine.analyze(beaconing_parse_result)
     beacon_alerts = [
-        a for a in alerts
+        a
+        for a in alerts
         if a.rule_name == "beaconing" or a.evidence.get("detection_type") == "beaconing"
     ]
     assert len(beacon_alerts) >= 1

@@ -1,8 +1,6 @@
 """Threat classifier — merges rule-based and ML alerts, deduplicates, and assigns severity scores."""
 
-from datetime import datetime
-
-from models.threats import RuleAlert, AnomalyAlert, ClassifiedThreat, ThreatReport
+from models.threats import AnomalyAlert, ClassifiedThreat, RuleAlert, ThreatReport
 
 _RULE_RECOMMENDATIONS = {
     "PORT_SCAN": [
@@ -41,7 +39,6 @@ _BASE_SEVERITY_SCORES = {
 
 
 class ThreatClassifier:
-
     def classify(
         self,
         rule_alerts: list[RuleAlert],
@@ -85,7 +82,11 @@ class ThreatClassifier:
         if category == "PORT_SCAN" and alert.source_ips:
             title = f"Vertical Port Scan from {alert.source_ips[0]}"
         elif category == "DDOS_ATTACK":
-            title = f"DDoS Attack targeting {alert.dest_ips[0]}" if alert.dest_ips else "DDoS Attack detected"
+            title = (
+                f"DDoS Attack targeting {alert.dest_ips[0]}"
+                if alert.dest_ips
+                else "DDoS Attack detected"
+            )
         elif category == "BRUTE_FORCE" and alert.source_ips:
             title = f"Brute Force from {alert.source_ips[0]}"
         elif category == "SUSPICIOUS_CONNECTION" and alert.dest_ips:
@@ -104,7 +105,9 @@ class ThreatClassifier:
             detection_method="rule",
             source_ips=list(alert.source_ips),
             dest_ips=list(alert.dest_ips),
-            time_range=f"{alert.timestamps[0]} \u2013 {alert.timestamps[-1]}" if alert.timestamps else "",
+            time_range=f"{alert.timestamps[0]} \u2013 {alert.timestamps[-1]}"
+            if alert.timestamps
+            else "",
             evidence=alert.evidence,
             recommendations=recommendations,
         )
