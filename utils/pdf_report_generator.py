@@ -5,7 +5,6 @@ from datetime import datetime
 
 from fpdf import FPDF
 
-from models.threats import ThreatReport, ClassifiedThreat
 from models.reports import AnalysisSummary, VisualizationResult
 
 BULLET = "-"
@@ -45,7 +44,6 @@ def _sanitize(text: str) -> str:
 
 
 class _ReportPDF(FPDF):
-
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
@@ -54,7 +52,6 @@ class _ReportPDF(FPDF):
 
 
 class PDFReportGenerator:
-
     def __init__(self, output_dir: str = "output"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
@@ -89,7 +86,9 @@ class PDFReportGenerator:
 
         pdf.set_font("Helvetica", "", 14)
         pdf.set_text_color(117, 117, 117)
-        pdf.cell(0, 10, datetime.now().strftime("%B %d, %Y"), align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            0, 10, datetime.now().strftime("%B %d, %Y"), align="C", new_x="LMARGIN", new_y="NEXT"
+        )
         pdf.ln(15)
 
         pdf.set_font("Helvetica", "", 11)
@@ -177,17 +176,24 @@ class PDFReportGenerator:
             else:
                 pdf.set_fill_color(255, 255, 255)
             pdf.cell(col_w, row_h, _sanitize(label), border=1, fill=True)
-            pdf.cell(col_w, row_h, _sanitize(value), border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(
+                col_w, row_h, _sanitize(value), border=1, fill=True, new_x="LMARGIN", new_y="NEXT"
+            )
 
     def _add_protocol_analysis(
-        self, pdf: _ReportPDF, summary: AnalysisSummary, viz: VisualizationResult,
+        self,
+        pdf: _ReportPDF,
+        summary: AnalysisSummary,
+        viz: VisualizationResult,
     ):
         self._add_heading(pdf, "Protocol Analysis")
 
         total = sum(summary.protocol_breakdown.values()) or 1
         lines = []
         for proto, count in sorted(
-            summary.protocol_breakdown.items(), key=lambda x: x[1], reverse=True,
+            summary.protocol_breakdown.items(),
+            key=lambda x: x[1],
+            reverse=True,
         ):
             pct = count / total * 100
             lines.append(f"{proto}: {count:,} packets ({pct:.1f}%)")
@@ -236,7 +242,14 @@ class PDFReportGenerator:
                 ips_text += f" (+{len(threat.source_ips) - 2})"
             pdf.cell(col_widths[3], row_h, _sanitize(ips_text), border=1)
 
-            pdf.cell(col_widths[4], row_h, threat.detection_method, border=1, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(
+                col_widths[4],
+                row_h,
+                threat.detection_method,
+                border=1,
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
 
     def _add_threat_details(self, pdf: _ReportPDF, summary: AnalysisSummary):
         self._add_heading(pdf, "Threat Details")
@@ -252,7 +265,9 @@ class PDFReportGenerator:
                 pdf.set_text_color(33, 33, 33)
                 for key, value in threat.evidence.items():
                     pdf.cell(5)
-                    pdf.cell(0, 6, _sanitize(f"{BULLET}  {key}: {value}"), new_x="LMARGIN", new_y="NEXT")
+                    pdf.cell(
+                        0, 6, _sanitize(f"{BULLET}  {key}: {value}"), new_x="LMARGIN", new_y="NEXT"
+                    )
                 pdf.ln(2)
 
             if threat.source_ips:
@@ -308,7 +323,15 @@ class PDFReportGenerator:
         pdf.set_text_color(255, 255, 255)
         pdf.cell(col_widths[0], row_h, "#", border=1, fill=True)
         pdf.cell(col_widths[1], row_h, "Priority", border=1, fill=True)
-        pdf.cell(col_widths[2], row_h, "Recommendation", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            col_widths[2],
+            row_h,
+            "Recommendation",
+            border=1,
+            fill=True,
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
 
         pdf.set_font("Helvetica", "", 9)
         for i, (severity, rec) in enumerate(prioritized, 1):

@@ -12,7 +12,6 @@ FLAG_MAP = {"S": "SYN", "A": "ACK", "R": "RST", "F": "FIN", "P": "PSH", "U": "UR
 
 
 class PcapParser:
-
     def parse(self, filepath: str) -> ParseResult:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"PCAP file not found: {filepath}")
@@ -115,18 +114,20 @@ class PcapParser:
             end_dt = datetime.fromisoformat(end)
             duration = (end_dt - start_dt).total_seconds()
 
-            flows.append(ConnectionFlow(
-                src_ip=src_ip,
-                dst_ip=dst_ip,
-                src_port=src_port,
-                dst_port=dst_port,
-                protocol=protocol,
-                packet_count=len(pkts),
-                total_bytes=sum(p.size for p in pkts),
-                duration_seconds=duration,
-                start_time=start,
-                end_time=end,
-            ))
+            flows.append(
+                ConnectionFlow(
+                    src_ip=src_ip,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port,
+                    protocol=protocol,
+                    packet_count=len(pkts),
+                    total_bytes=sum(p.size for p in pkts),
+                    duration_seconds=duration,
+                    start_time=start,
+                    end_time=end,
+                )
+            )
         return flows
 
     @staticmethod

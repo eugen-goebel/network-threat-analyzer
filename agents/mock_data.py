@@ -1,7 +1,7 @@
 """Mock analysis data for demo mode — enables running without input files."""
 
-from models.threats import ClassifiedThreat, ThreatReport
 from models.reports import AnalysisSummary
+from models.threats import ClassifiedThreat, ThreatReport
 
 
 def get_mock_report() -> ThreatReport:

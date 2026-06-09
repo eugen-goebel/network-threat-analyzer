@@ -2,9 +2,9 @@
 
 import pytest
 
+from agents.rule_engine import RuleEngine
 from models.network import PacketRecord, ParseResult
 from rules import dns_tunneling
-from agents.rule_engine import RuleEngine
 
 
 def _dns_packet(
@@ -57,8 +57,7 @@ def oversized_dns_packets():
 def normal_dns_packets():
     """Five small DNS queries — well below any threshold."""
     return [
-        _dns_packet(timestamp=f"2026-03-15T10:00:{i*10:02d}", payload_size=40)
-        for i in range(5)
+        _dns_packet(timestamp=f"2026-03-15T10:00:{i * 10:02d}", payload_size=40) for i in range(5)
     ]
 
 
@@ -87,9 +86,7 @@ class TestVolumePattern:
 class TestOversizedPattern:
     def test_oversized_triggers_alert(self, oversized_dns_packets):
         alerts = dns_tunneling.detect(oversized_dns_packets, flows=[])
-        size_alerts = [
-            a for a in alerts if a.rule_name == "dns_tunneling_oversized_queries"
-        ]
+        size_alerts = [a for a in alerts if a.rule_name == "dns_tunneling_oversized_queries"]
         assert len(size_alerts) == 1
         alert = size_alerts[0]
         assert alert.source_ips == ["10.0.0.42"]
@@ -107,9 +104,7 @@ class TestOversizedPattern:
             for i in range(10)
         ]
         alerts = dns_tunneling.detect(packets, flows=[])
-        assert [
-            a for a in alerts if a.rule_name == "dns_tunneling_oversized_queries"
-        ] == []
+        assert [a for a in alerts if a.rule_name == "dns_tunneling_oversized_queries"] == []
 
 
 class TestDetection:

@@ -1,7 +1,7 @@
 """Tests for the ML-based anomaly detector ensemble."""
 
-import pytest
 import numpy as np
+import pytest
 
 from agents.anomaly_detector import AnomalyDetector
 from agents.feature_extractor import FeatureMatrix
@@ -18,10 +18,7 @@ def normal_features():
 
     feature_names = [f"feature_{i}" for i in range(18)]
     window_starts = [f"2026-03-15T10:{i:02d}:00" for i in range(20)]
-    baseline_stats = {
-        name: float(np.mean(features[:, i]))
-        for i, name in enumerate(feature_names)
-    }
+    baseline_stats = {name: float(np.mean(features[:, i])) for i, name in enumerate(feature_names)}
 
     return FeatureMatrix(
         features=features,
@@ -50,10 +47,7 @@ def few_window_features():
     features = np.abs(features)
     feature_names = [f"feature_{i}" for i in range(18)]
     window_starts = [f"2026-03-15T10:{i:02d}:00" for i in range(3)]
-    baseline_stats = {
-        name: float(np.mean(features[:, i]))
-        for i, name in enumerate(feature_names)
-    }
+    baseline_stats = {name: float(np.mean(features[:, i])) for i, name in enumerate(feature_names)}
     return FeatureMatrix(
         features=features,
         feature_names=feature_names,

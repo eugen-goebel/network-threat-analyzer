@@ -5,10 +5,9 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
-import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from models.network import PacketRecord, ParseResult, LogParseResult
+from models.network import LogParseResult, ParseResult
 
 
 class FeatureMatrix(BaseModel):
@@ -80,9 +79,7 @@ class FeatureExtractor:
         if log_result:
             for entry in log_result.entries:
                 try:
-                    log_entries_parsed.append(
-                        (datetime.fromisoformat(entry.timestamp), entry)
-                    )
+                    log_entries_parsed.append((datetime.fromisoformat(entry.timestamp), entry))
                 except (ValueError, TypeError):
                     continue
 
@@ -91,9 +88,7 @@ class FeatureExtractor:
             w_end = w_start + timedelta(seconds=self.window_seconds)
 
             wp = [
-                (p, ts)
-                for p, ts in zip(packets, timestamps)
-                if w_start <= ts < w_end
+                (p, ts) for p, ts in zip(packets, timestamps, strict=False) if w_start <= ts < w_end
             ]
             if not wp:
                 rows.append([0.0] * len(FEATURE_NAMES))
@@ -136,24 +131,24 @@ class FeatureExtractor:
                         error_count += 1
 
             row = [
-                total / self.window_seconds,                 # packets_per_second
-                len(dst_ips),                                # unique_dst_ips
-                len(dst_ports),                              # unique_dst_ports
-                syn_count / total if tcp_packets else 0.0,   # syn_ratio
-                rst_count / total if tcp_packets else 0.0,   # rst_ratio
-                icmp_count / total,                          # icmp_ratio
-                float(avg_size),                             # avg_packet_size
-                std_size,                                    # packet_size_std
-                small_ratio,                                 # small_packet_ratio
-                large_ratio,                                 # large_packet_ratio
-                len(src_ips),                                # unique_src_ips
-                self._shannon_entropy(all_flags),            # tcp_flag_entropy
+                total / self.window_seconds,  # packets_per_second
+                len(dst_ips),  # unique_dst_ips
+                len(dst_ports),  # unique_dst_ports
+                syn_count / total if tcp_packets else 0.0,  # syn_ratio
+                rst_count / total if tcp_packets else 0.0,  # rst_ratio
+                icmp_count / total,  # icmp_ratio
+                float(avg_size),  # avg_packet_size
+                std_size,  # packet_size_std
+                small_ratio,  # small_packet_ratio
+                large_ratio,  # large_packet_ratio
+                len(src_ips),  # unique_src_ips
+                self._shannon_entropy(all_flags),  # tcp_flag_entropy
                 self._shannon_entropy([p.dst_port for p in w_packets]),  # port_entropy
-                dns_count,                                   # dns_query_count
-                error_count,                                 # http_error_count
-                sum(sizes) / self.window_seconds,            # bytes_per_second
-                conn_count,                                  # connection_count
-                avg_flow,                                    # avg_flow_packets
+                dns_count,  # dns_query_count
+                error_count,  # http_error_count
+                sum(sizes) / self.window_seconds,  # bytes_per_second
+                conn_count,  # connection_count
+                avg_flow,  # avg_flow_packets
             ]
             rows.append(row)
 

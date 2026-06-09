@@ -1,8 +1,8 @@
 """Rule engine — dispatches parsed traffic data to all detection rule modules."""
 
-from models.network import ParseResult, LogParseResult
+from models.network import LogParseResult, ParseResult
 from models.threats import RuleAlert
-from rules import port_scan, ddos, brute_force, suspicious_connections, dns_tunneling
+from rules import brute_force, ddos, dns_tunneling, port_scan, suspicious_connections
 
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
@@ -26,12 +26,8 @@ class RuleEngine:
                 log_result.entries if log_result else [],
             )
         )
-        alerts.extend(
-            suspicious_connections.detect(parse_result.packets, parse_result.flows)
-        )
-        alerts.extend(
-            dns_tunneling.detect(parse_result.packets, parse_result.flows)
-        )
+        alerts.extend(suspicious_connections.detect(parse_result.packets, parse_result.flows))
+        alerts.extend(dns_tunneling.detect(parse_result.packets, parse_result.flows))
 
         alerts.sort(key=lambda a: SEVERITY_ORDER.get(a.severity, 99))
         return alerts
