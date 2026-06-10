@@ -113,16 +113,16 @@ cd network-threat-analyzer
 
 # 2. Setup environment
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+uv sync
 
 # 3. Run demo analysis
-python main.py --demo
+uv run main.py --demo
 
 # 4. Analyze your own files
-python main.py capture.pcap server.log
+uv run main.py capture.pcap server.log
 
 # 5. Launch dashboard
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ---
