@@ -13,7 +13,7 @@ Multi-agent network threat detection system combining rule-based signature match
 
 ## Screenshots
 
-**Start Screen**: upload PCAP/log files or load demo data; rule-based + ML detection
+**Start Screen**: upload PCAP/log files or load demo data, rule-based + ML detection
 ![Start](docs/screenshots/01-start.png)
 
 **Threat Analysis**: severity-ranked threat overview with rule and ML-based detections
