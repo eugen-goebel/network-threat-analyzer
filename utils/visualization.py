@@ -60,14 +60,28 @@ class ChartGenerator:
         fig = plt.figure(figsize=(8, 6), facecolor=COLOR_BG)
         ax = fig.add_subplot(111)
         ax.set_facecolor(COLOR_BG)
-        ax.pie(
-            sizes,
-            labels=labels,
-            colors=colors,
-            autopct="%1.1f%%",
-            startangle=140,
-            textprops={"fontsize": 10},
-        )
+        # matplotlib 3.11 raises "All wedge sizes are zero" when every value is
+        # zero or the data is empty, so fall back to a placeholder in that case.
+        if sum(sizes) > 0:
+            ax.pie(
+                sizes,
+                labels=labels,
+                colors=colors,
+                autopct="%1.1f%%",
+                startangle=140,
+                textprops={"fontsize": 10},
+            )
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                "No protocol data",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="#757575",
+            )
+            ax.axis("off")
         ax.set_title("Protocol Distribution", fontsize=14, fontweight="bold")
         fig.tight_layout()
 
