@@ -36,7 +36,7 @@ uploaded_files = st.sidebar.file_uploader(
 )
 
 st.sidebar.markdown("---")
-demo_clicked = st.sidebar.button("Load Demo Data", use_container_width=True)
+demo_clicked = st.sidebar.button("Load Demo Data", width="stretch")
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("Settings"):
@@ -92,7 +92,7 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
                     "Source IPs": st.column_config.TextColumn("Source IPs"),
                     "Detection": st.column_config.TextColumn("Detection"),
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -187,17 +187,13 @@ def run_analysis(file_paths):
 # Main logic
 # ---------------------------------------------------------------------------
 
-if demo_clicked or st.session_state.get("demo_loaded"):
-    st.session_state.demo_loaded = True
+st.title("Network Threat Analyzer")
 
-    threat_report = get_mock_report()
-    protocol_dist = get_mock_protocol_dist()
-    timeline = get_mock_timeline()
-    anomaly_scores = get_mock_anomaly_scores()
-
-    display_results(threat_report, protocol_dist, timeline, anomaly_scores)
-
-elif uploaded_files:
+# A first-time visitor should land on a full sample report rather than an
+# empty page, so the demo is shown by default. Uploading a file takes over,
+# and a click on "Load Demo Data" always returns to the sample report.
+if uploaded_files:
+    st.session_state.demo_loaded = False
     with tempfile.TemporaryDirectory() as tmpdir:
         file_paths = []
         for uf in uploaded_files:
@@ -217,7 +213,7 @@ elif uploaded_files:
 
     display_results(report, proto, tl, anom)
 
-elif "last_report" in st.session_state:
+elif st.session_state.get("last_report") is not None and not demo_clicked:
     display_results(
         st.session_state.last_report,
         st.session_state.last_proto,
@@ -226,24 +222,25 @@ elif "last_report" in st.session_state:
     )
 
 else:
-    st.title("Network Threat Analyzer")
-    st.markdown(
-        "Upload PCAP or log files to start analysis, or click "
-        "**Load Demo Data** to see a sample report."
+    st.session_state.demo_loaded = True
+    st.caption(
+        "Demo mode. A sample capture with detected threats is preloaded. "
+        "Upload your own PCAP or log files in the sidebar to analyze real traffic."
+    )
+    display_results(
+        get_mock_report(),
+        get_mock_protocol_dist(),
+        get_mock_timeline(),
+        get_mock_anomaly_scores(),
     )
 
-    col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.subheader("Rule-Based Detection")
-        st.markdown(
-            "- Port Scans\n- DDoS Patterns\n- Brute Force Attempts\n- Suspicious Connections"
-        )
-
-    with col2:
-        st.subheader("ML Anomaly Detection")
-        st.markdown("- Isolation Forest\n- Local Outlier Factor\n- One-Class SVM")
-
-    with col3:
-        st.subheader("Professional Reports")
-        st.markdown("- DOCX Reports\n- Interactive Charts\n- Actionable Recommendations")
+st.divider()
+st.markdown(
+    "<div style='text-align:center; color:gray; font-size:0.85rem;'>"
+    "Built by Eugen Goebel &middot; "
+    "<a href='https://github.com/eugen-goebel' target='_blank'>GitHub</a> &middot; "
+    "<a href='https://www.linkedin.com/in/eugen-goebel/' target='_blank'>LinkedIn</a>"
+    "</div>",
+    unsafe_allow_html=True,
+)
