@@ -67,6 +67,41 @@ def _threats_dataframe(threats):
 # ---------------------------------------------------------------------------
 
 
+_MODEL_LABELS = {
+    "isolation_forest": "Isolation Forest",
+    "local_outlier_factor": "Local Outlier Factor",
+    "one_class_svm": "One-Class SVM",
+}
+
+
+def _render_ml_evidence(evidence: dict) -> None:
+    """Show the anomaly ensemble's decision in plain language.
+
+    scikit-learn encodes an outlier as -1 and an inlier as 1, which means
+    nothing to a reader, so translate it into how many of the three models
+    flagged the window and which features drove the score.
+    """
+    votes = evidence.get("model_votes", {})
+    flagged = sum(1 for v in votes.values() if v == -1)
+    score = evidence.get("anomaly_score")
+
+    left, right = st.columns(2)
+    if score is not None:
+        left.metric("Anomaly score", f"{score:.2f}")
+    right.metric("Models in agreement", f"{flagged} of {len(votes)}")
+
+    st.markdown("**Ensemble votes:**")
+    for key, vote in votes.items():
+        label = _MODEL_LABELS.get(key, key)
+        st.markdown(f"- {'🚩 flagged' if vote == -1 else '✅ normal'} — {label}")
+
+    features = evidence.get("contributing_features")
+    if features:
+        st.markdown("**Top contributing features:**")
+        for feat in features:
+            st.markdown(f"- {feat}")
+
+
 def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
     # --- Header metrics ---
     c1, c2, c3, c4 = st.columns(4)
@@ -99,8 +134,11 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
             for t in threats:
                 with st.expander(f"{t.severity_label.upper()} — {t.title}"):
                     st.markdown(f"**Description:** {t.description}")
-                    st.markdown("**Evidence:**")
-                    st.json(t.evidence)
+                    if t.detection_method in ("ml", "both") and t.evidence.get("model_votes"):
+                        _render_ml_evidence(t.evidence)
+                    else:
+                        st.markdown("**Evidence:**")
+                        st.json(t.evidence)
                     st.markdown("**Recommendations:**")
                     for rec in t.recommendations:
                         st.markdown(f"- {rec}")

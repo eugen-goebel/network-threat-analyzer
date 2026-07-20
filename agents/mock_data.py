@@ -126,10 +126,7 @@ def get_mock_report() -> ThreatReport:
             severity_score=55,
             severity_label="medium",
             title="Anomalous Traffic Detected (10:03:00)",
-            description=(
-                "ML ensemble flagged unusual network behavior. Contributing factors: "
-                "packets_per_second (8.2x above baseline), unique_src_ips (5.1x above baseline)"
-            ),
+            description="ML ensemble flagged unusual network behavior in this time window.",
             source_ips=[],
             dest_ips=[],
             time_range="2026-03-15T10:03:00 – 2026-03-15T10:04:00",
@@ -140,6 +137,10 @@ def get_mock_report() -> ThreatReport:
                     "local_outlier_factor": -1,
                     "one_class_svm": -1,
                 },
+                "contributing_features": [
+                    "packets_per_second (8.2x above baseline)",
+                    "unique_src_ips (5.1x above baseline)",
+                ],
             },
             detection_method="ml",
             recommendations=[
