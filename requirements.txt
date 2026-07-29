@@ -4,7 +4,7 @@
 # stack (matplotlib, python-docx, fpdf2) and python-dotenv are left out
 # because they are only used by the CLI report generators, not the app.
 streamlit>=1.60.0
-pandas>=3.0.3
+pandas>=3.0.5
 numpy>=2.4.6
 scikit-learn>=1.5.0
 scapy>=2.5.0
