@@ -30,5 +30,35 @@ def test_demo_report_loads_without_a_click(app: AppTest) -> None:
     assert metrics["Critical"] == "2"
 
 
+def test_severity_metrics_add_up_to_the_total(app: AppTest) -> None:
+    # Regression: only Critical and High were shown, so the header read
+    # 2 + 3 against a total of 6 and the missing threats were unaccounted for.
+    metrics = {m.label: m.value for m in app.metric}
+    severities = ["Critical", "High", "Medium", "Low"]
+    for label in severities:
+        assert label in metrics, f"severity card missing: {label}"
+    assert sum(int(metrics[label]) for label in severities) == int(metrics["Total Threats"])
+
+
+def test_source_ip_column_is_summarised_not_truncated(app: AppTest) -> None:
+    # Regression: 15 SYN-flood sources were joined into one string that the
+    # table cut mid-address, which reads like a corrupted value.
+    from app import _format_source_ips
+
+    many = [f"172.16.0.{i}" for i in range(1, 16)]
+    assert _format_source_ips(many) == "172.16.0.1, 172.16.0.2 +13 more"
+    assert _format_source_ips(["10.0.0.1"]) == "10.0.0.1"
+    assert _format_source_ips([]) == "N/A"
+
+
+def test_sensitivity_slider_sits_in_the_sidebar_with_help(app: AppTest) -> None:
+    # Regression: st.sidebar.slider inside `with st.sidebar.expander(...)`
+    # bypassed the expander, and the bare value 0.05 carried no explanation.
+    sliders = [s for s in app.sidebar.slider]
+    assert len(sliders) == 1
+    assert sliders[0].label == "Anomaly Sensitivity"
+    assert sliders[0].help
+
+
 def test_footer_points_at_the_portfolio(app: AppTest) -> None:
     assert any("github.com/eugen-goebel" in block.value for block in app.markdown)
