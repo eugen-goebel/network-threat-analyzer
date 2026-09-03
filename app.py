@@ -40,11 +40,40 @@ demo_clicked = st.sidebar.button("Load Demo Data", width="stretch")
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("Settings"):
-    sensitivity = st.sidebar.slider("Anomaly Sensitivity", 0.01, 0.15, 0.05, 0.01)
+    # st.sidebar.slider inside this block would target the sidebar directly and
+    # bypass the expander, leaving an empty "Settings" box with a stray slider
+    # underneath it. Inside a context manager the plain st.* call is correct.
+    sensitivity = st.slider(
+        "Anomaly Sensitivity",
+        0.01,
+        0.15,
+        0.05,
+        0.01,
+        help=(
+            "Share of traffic windows the anomaly models may flag. "
+            "Lower means fewer, higher-confidence alerts; higher catches more "
+            "but raises false positives. Default 0.05 = 5 percent."
+        ),
+    )
 
 # ---------------------------------------------------------------------------
 # Helper — build threat table
 # ---------------------------------------------------------------------------
+
+
+def _format_source_ips(source_ips, shown: int = 2) -> str:
+    """Summarise a source-IP list so the table column stays readable.
+
+    A SYN flood carries 15 sources. Joining them all produced a string the
+    column silently cut mid-address ("172.16.0.1, 172.16.0.5, 172..."), which
+    reads like a broken value. Show the first few and count the rest instead;
+    the full list stays available in the detail view.
+    """
+    if not source_ips:
+        return "N/A"
+    if len(source_ips) <= shown:
+        return ", ".join(source_ips)
+    return f"{', '.join(source_ips[:shown])} +{len(source_ips) - shown} more"
 
 
 def _threats_dataframe(threats):
@@ -55,7 +84,7 @@ def _threats_dataframe(threats):
                 "Severity": t.severity_label.upper(),
                 "Category": t.category,
                 "Title": t.title,
-                "Source IPs": ", ".join(t.source_ips) if t.source_ips else "N/A",
+                "Source IPs": _format_source_ips(t.source_ips),
                 "Detection": t.detection_method,
             }
         )
@@ -104,11 +133,16 @@ def _render_ml_evidence(evidence: dict) -> None:
 
 def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
     # --- Header metrics ---
-    c1, c2, c3, c4 = st.columns(4)
+    # The severity cards have to add up to "Total Threats". Showing only
+    # Critical and High left a reader with 2 + 3 against a total of 6 and no
+    # way to tell where the missing threat went, so every severity is listed.
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Total Threats", threat_report.total_threats)
     c2.metric("Critical", threat_report.critical_count)
     c3.metric("High", threat_report.high_count)
-    c4.metric("Packets Analyzed", threat_report.packets_analyzed)
+    c4.metric("Medium", threat_report.medium_count)
+    c5.metric("Low", threat_report.low_count)
+    c6.metric("Packets Analyzed", f"{threat_report.packets_analyzed:,}")
 
     # --- Tabs ---
     tab_overview, tab_details = st.tabs(["Threat Overview", "Analysis Details"])
@@ -131,9 +165,16 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
                 hide_index=True,
             )
 
+            # The expanders repeat every row of the table above. Without a
+            # heading they read as a duplicate list rather than the drill-down
+            # they are.
+            st.subheader("Threat details")
+            st.caption("One entry per row above: evidence, affected hosts and recommended action.")
             for t in threats:
                 with st.expander(f"{t.severity_label.upper()} — {t.title}"):
                     st.markdown(f"**Description:** {t.description}")
+                    if t.source_ips:
+                        st.markdown(f"**Source IPs:** {', '.join(t.source_ips)}")
                     if t.detection_method in ("ml", "both") and t.evidence.get("model_votes"):
                         _render_ml_evidence(t.evidence)
                     else:
