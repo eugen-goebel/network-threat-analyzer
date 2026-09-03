@@ -1,11 +1,17 @@
-# Runtime dependencies for the Streamlit Cloud demo.
+# Runtime dependencies for the Streamlit Cloud demo and the Dockerfile.
 # pyproject.toml + uv.lock stay the source of truth for local dev and CI.
-# This is the subset the dashboard (app.py) actually imports. The report
-# stack (matplotlib, python-docx, fpdf2) and python-dotenv are left out
-# because they are only used by the CLI report generators, not the app.
+# Everything app.py reaches at import time has to be listed here, and that
+# includes the report stack: app.py imports agents, whose __init__ pulls in
+# orchestrator, which imports utils/pdf_report_generator (fpdf2),
+# utils/report_generator (python-docx) and utils/visualization (matplotlib).
+# python-dotenv is needed because main.py calls load_dotenv at import.
 streamlit>=1.61.1
 pandas>=3.0.5
 numpy>=2.4.6
 scikit-learn>=1.5.0
 scapy>=2.5.0
 pydantic>=2.13.4
+matplotlib>=3.11.1
+python-docx>=1.1.0
+fpdf2>=2.8.7
+python-dotenv>=1.2.2
