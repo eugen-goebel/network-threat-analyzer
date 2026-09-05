@@ -4,10 +4,13 @@ Multi-agent network threat detection system combining rule-based signature match
 
 ![CI](https://github.com/eugen-goebel/network-threat-analyzer/actions/workflows/tests.yml/badge.svg)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/Tests-54+-passing?color=brightgreen)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5+-F7931E?logo=scikit-learn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit_Cloud-FF4B4B?style=flat)](https://eugen-goebel-network-threat-analyzer.streamlit.app/)
+
+> **Try it live:** [eugen-goebel-network-threat-analyzer.streamlit.app](https://eugen-goebel-network-threat-analyzer.streamlit.app/). Opens in demo mode with a sample capture already analyzed, so the rule-based and ML detections are visible without uploading anything.
+
 
 ---
 
