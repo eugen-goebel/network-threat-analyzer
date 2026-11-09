@@ -4,59 +4,77 @@ import os
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from scapy.all import DNS, ICMP, IP, TCP, UDP, rdpcap
+from scapy.all import DNS, ICMP, IP, TCP, UDP, PcapReader
 
 from models.network import ConnectionFlow, PacketRecord, ParseResult
 
 FLAG_MAP = {"S": "SYN", "A": "ACK", "R": "RST", "F": "FIN", "P": "PSH", "U": "URG"}
 
+# Upper bound on packets read from one capture. rdpcap() kept every scapy packet
+# in memory at once (about 12 KB each), so one large or crafted upload could
+# exhaust the host. The packets are now streamed, which also stops a compressed
+# capture from being inflated without limit.
+MAX_PACKETS = 50_000
+
 
 class PcapParser:
+    def __init__(self, max_packets: int | None = MAX_PACKETS):
+        # None disables the bound (trusted local files only).
+        self.max_packets = max_packets
+
     def parse(self, filepath: str) -> ParseResult:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"PCAP file not found: {filepath}")
 
         try:
-            packets = rdpcap(filepath)
+            reader = PcapReader(filepath)
         except Exception as exc:
             raise ValueError(f"Not a valid PCAP file: {filepath}") from exc
 
-        if not packets:
-            raise ValueError(f"No packets found in {filepath}")
-
         records: list[PacketRecord] = []
         flow_buckets: dict[tuple, list[PacketRecord]] = defaultdict(list)
+        packets_read = 0
+        truncated = False
 
-        for pkt in packets:
-            if not pkt.haslayer(IP):
-                continue
+        with reader:
+            for pkt in reader:
+                packets_read += 1
+                if self.max_packets is not None and packets_read > self.max_packets:
+                    truncated = True
+                    break
 
-            ip = pkt[IP]
-            ts = datetime.fromtimestamp(float(pkt.time), tz=timezone.utc).isoformat()
+                if not pkt.haslayer(IP):
+                    continue
 
-            protocol = self._detect_protocol(pkt)
-            src_port, dst_port = self._extract_ports(pkt)
-            tcp_flags = self._extract_tcp_flags(pkt)
+                ip = pkt[IP]
+                ts = datetime.fromtimestamp(float(pkt.time), tz=timezone.utc).isoformat()
 
-            try:
-                payload_size = len(pkt.payload.payload)
-            except Exception:
-                payload_size = 0
+                protocol = self._detect_protocol(pkt)
+                src_port, dst_port = self._extract_ports(pkt)
+                tcp_flags = self._extract_tcp_flags(pkt)
 
-            record = PacketRecord(
-                timestamp=ts,
-                src_ip=ip.src,
-                dst_ip=ip.dst,
-                src_port=src_port,
-                dst_port=dst_port,
-                protocol=protocol,
-                size=len(pkt),
-                tcp_flags=tcp_flags,
-                payload_size=payload_size,
-            )
-            records.append(record)
-            key = (ip.src, ip.dst, src_port, dst_port, protocol)
-            flow_buckets[key].append(record)
+                try:
+                    payload_size = len(pkt.payload.payload)
+                except Exception:
+                    payload_size = 0
+
+                record = PacketRecord(
+                    timestamp=ts,
+                    src_ip=ip.src,
+                    dst_ip=ip.dst,
+                    src_port=src_port,
+                    dst_port=dst_port,
+                    protocol=protocol,
+                    size=len(pkt),
+                    tcp_flags=tcp_flags,
+                    payload_size=payload_size,
+                )
+                records.append(record)
+                key = (ip.src, ip.dst, src_port, dst_port, protocol)
+                flow_buckets[key].append(record)
+
+        if packets_read == 0:
+            raise ValueError(f"No packets found in {filepath}")
 
         flows = self._build_flows(flow_buckets)
         protocol_distribution = self._count_protocols(records)
@@ -64,6 +82,13 @@ class PcapParser:
         unique_src = {r.src_ip for r in records}
         unique_dst = {r.dst_ip for r in records}
         time_range = f"{records[0].timestamp} \u2013 {records[-1].timestamp}" if records else ""
+
+        warnings = []
+        if truncated:
+            warnings.append(
+                f"Capture truncated: only the first {self.max_packets:,} packets were "
+                "analyzed, the rest of the file was ignored."
+            )
 
         return ParseResult(
             source_file=filepath,
@@ -75,6 +100,7 @@ class PcapParser:
             protocol_distribution=protocol_distribution,
             packets=records,
             flows=flows,
+            warnings=warnings,
         )
 
     @staticmethod

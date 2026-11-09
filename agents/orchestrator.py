@@ -40,7 +40,9 @@ class ThreatAnalysisOrchestrator:
             ext = os.path.splitext(fp)[1].lower()
             if ext in (".pcap", ".pcapng") and parse_result is None:
                 print(f"  Parsing PCAP: {fp}")
-                parse_result = PcapParser().parse(fp)
+                # Local files are trusted: keep the whole capture so the report
+                # is not silently partial. The web app keeps the default bound.
+                parse_result = PcapParser(max_packets=None).parse(fp)
                 print(
                     f"  {parse_result.packet_count} packets, {parse_result.unique_src_ips} unique sources"
                 )

@@ -138,6 +138,7 @@ The Streamlit dashboard provides:
 - Protocol distribution charts
 - Traffic timeline with anomaly highlighting
 - DOCX report download
+- Upload limits: 25 MB per file, 50 MB in total, and only the first 50,000 packets of a capture are analyzed (a warning is shown when a capture is cut). The CLI reads local files in full.
 
 ---
 
