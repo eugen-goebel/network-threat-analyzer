@@ -128,3 +128,26 @@ def test_streamlit_config_sets_the_per_file_upload_limit() -> None:
     config = Path(APP).parent / ".streamlit" / "config.toml"
     limit = tomllib.loads(config.read_text())["server"]["maxUploadSize"]
     assert 0 < limit <= 25
+
+
+@pytest.mark.parametrize("name", ["../escaped.pcap", "{base}/escaped.pcap"])
+def test_upload_name_cannot_write_outside_the_temp_dir(tmp_path, monkeypatch, name) -> None:
+    # Regression: the file was written to os.path.join(tmpdir, uf.name), and
+    # Streamlit does not sanitize that name. "../x" or an absolute path from a
+    # crafted request put the upload anywhere the app may write.
+    import tempfile
+
+    base = tmp_path / "base"
+    base.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(base))
+    sample = Path(APP).parent / "data" / "sample_capture.pcap"
+
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(
+        (name.format(base=base), sample.read_bytes(), "application/octet-stream")
+    )
+    at.run()
+
+    assert not at.exception
+    assert not (base / "escaped.pcap").exists()
+    assert {m.label: m.value for m in at.metric}.get("Packets Analyzed")

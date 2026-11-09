@@ -91,6 +91,18 @@ def _upload_size_error(files, limit_mb: int = MAX_TOTAL_UPLOAD_MB) -> str | None
     )
 
 
+def _upload_path(tmpdir: str, name: str, index: int) -> str:
+    """Where an uploaded file is written, always inside tmpdir.
+
+    Streamlit does not sanitize UploadedFile.name, so a crafted request can send
+    "../x" or an absolute path. Only the base name is kept.
+    """
+    base = os.path.basename(name.replace("\\", "/"))
+    if base in ("", ".", ".."):
+        base = f"upload_{index}"
+    return os.path.join(tmpdir, base)
+
+
 def _show_warnings() -> None:
     for message in st.session_state.get("last_warnings", []):
         st.warning(message)
@@ -303,8 +315,8 @@ if uploaded_files:
     st.session_state.demo_loaded = False
     with tempfile.TemporaryDirectory() as tmpdir:
         file_paths = []
-        for uf in uploaded_files:
-            path = os.path.join(tmpdir, uf.name)
+        for i, uf in enumerate(uploaded_files):
+            path = _upload_path(tmpdir, uf.name, i)
             with open(path, "wb") as f:
                 f.write(uf.getbuffer())
             file_paths.append(path)
