@@ -79,6 +79,13 @@ def test_parse_result_valid(sample_packets, sample_flows):
     assert result.packet_count == 10
     assert result.file_type == "pcap"
     assert result.unique_src_ips == 4
+    assert result.warnings == []
+
+
+def test_parse_result_warnings_are_not_shared_between_instances(sample_parse_result):
+    sample_parse_result.warnings.append("cut")
+    other = sample_parse_result.model_copy(update={"warnings": []})
+    assert other.warnings == []
 
 
 def test_log_entry_valid():

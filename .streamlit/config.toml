@@ -1,0 +1,4 @@
+[server]
+# Hard limit per uploaded file, in MB. Streamlit enforces it on the server
+# (default 200) and shows it in the uploader. app.py adds a limit on the sum.
+maxUploadSize = 25

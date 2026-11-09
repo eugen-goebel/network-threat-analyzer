@@ -40,6 +40,8 @@ class ParseResult(BaseModel):
     protocol_distribution: dict[str, int]
     packets: list[PacketRecord]
     flows: list[ConnectionFlow]
+    # Notes the user must see, e.g. that the capture was cut at the packet limit.
+    warnings: list[str] = []
 
 
 class LogEntry(BaseModel):

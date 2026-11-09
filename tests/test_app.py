@@ -62,3 +62,69 @@ def test_sensitivity_slider_sits_in_the_sidebar_with_help(app: AppTest) -> None:
 
 def test_footer_points_at_the_portfolio(app: AppTest) -> None:
     assert any("github.com/eugen-goebel" in block.value for block in app.markdown)
+
+
+# --- upload limits ----------------------------------------------------------
+
+
+def test_total_upload_size_over_the_limit_gets_a_clear_message() -> None:
+    # Regression: the uploader accepts several files and its limit applies per
+    # file, so ten files could still add up to gigabytes.
+    from types import SimpleNamespace
+
+    from app import MAX_TOTAL_UPLOAD_MB, _upload_size_error
+
+    mb = 1024 * 1024
+    small = [SimpleNamespace(size=10 * mb), SimpleNamespace(size=10 * mb)]
+    assert _upload_size_error(small) is None
+    exactly = [SimpleNamespace(size=MAX_TOTAL_UPLOAD_MB * mb)]
+    assert _upload_size_error(exactly) is None
+
+    message = _upload_size_error([SimpleNamespace(size=30 * mb), SimpleNamespace(size=30 * mb)])
+    assert "60.0 MB" in message
+    assert f"{MAX_TOTAL_UPLOAD_MB} MB" in message
+
+
+def test_oversized_upload_is_rejected_before_any_analysis() -> None:
+    mb = 1024 * 1024
+    blob = b"\x00" * (20 * mb)
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(
+        [(f"cap{i}.pcap", blob, "application/octet-stream") for i in range(3)]
+    )
+    at.run()
+
+    assert not at.exception
+    assert len(at.error) == 1
+    assert "60.0 MB" in at.error[0].value
+    assert not at.metric, "no analysis should have run"
+
+
+def test_truncated_capture_shows_a_warning_next_to_the_results(monkeypatch) -> None:
+    from agents import pcap_parser
+
+    class SmallParser(pcap_parser.PcapParser):
+        def __init__(self):
+            super().__init__(max_packets=100)
+
+    monkeypatch.setattr(pcap_parser, "PcapParser", SmallParser)
+    sample = Path(APP).parent / "data" / "sample_capture.pcap"
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(
+        ("sample_capture.pcap", sample.read_bytes(), "application/octet-stream")
+    )
+    at.run()
+
+    assert not at.exception
+    assert any("truncated" in w.value and "100" in w.value for w in at.warning)
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["Packets Analyzed"] == "100"
+
+
+def test_streamlit_config_sets_the_per_file_upload_limit() -> None:
+    # Regression: without .streamlit/config.toml Streamlit allows 200 MB per file.
+    import tomllib
+
+    config = Path(APP).parent / ".streamlit" / "config.toml"
+    limit = tomllib.loads(config.read_text())["server"]["maxUploadSize"]
+    assert 0 < limit <= 25

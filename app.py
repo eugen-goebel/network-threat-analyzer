@@ -22,6 +22,10 @@ from agents.threat_classifier import ThreatClassifier
 
 st.set_page_config(page_title="Network Threat Analyzer", page_icon="🛡", layout="wide")
 
+# The per-file limit is server.maxUploadSize in .streamlit/config.toml (25 MB).
+# The uploader accepts several files, so the total needs a limit of its own.
+MAX_TOTAL_UPLOAD_MB = 50
+
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
@@ -74,6 +78,22 @@ def _format_source_ips(source_ips, shown: int = 2) -> str:
     if len(source_ips) <= shown:
         return ", ".join(source_ips)
     return f"{', '.join(source_ips[:shown])} +{len(source_ips) - shown} more"
+
+
+def _upload_size_error(files, limit_mb: int = MAX_TOTAL_UPLOAD_MB) -> str | None:
+    """Return an error message if the uploaded files together exceed the limit."""
+    total = sum(f.size for f in files)
+    if total <= limit_mb * 1024 * 1024:
+        return None
+    return (
+        f"The uploaded files total {total / 1024 / 1024:.1f} MB, more than the "
+        f"{limit_mb} MB limit for one analysis. Remove some files or upload a smaller capture."
+    )
+
+
+def _show_warnings() -> None:
+    for message in st.session_state.get("last_warnings", []):
+        st.warning(message)
 
 
 def _threats_dataframe(threats):
@@ -230,6 +250,10 @@ def run_analysis(file_paths):
             st.error("At least one PCAP file is required.")
             return None, None, None, None
 
+        # Kept in session state so the notice also shows when the report is
+        # redisplayed after the upload is removed.
+        st.session_state.last_warnings = list(parse_result.warnings)
+
     with st.spinner("Extracting features..."):
         feature_matrix = FeatureExtractor().extract(parse_result, log_result)
 
@@ -272,6 +296,10 @@ st.title("Network Threat Analyzer")
 # empty page, so the demo is shown by default. Uploading a file takes over,
 # and a click on "Load Demo Data" always returns to the sample report.
 if uploaded_files:
+    size_error = _upload_size_error(uploaded_files)
+    if size_error:
+        st.error(size_error)
+        st.stop()
     st.session_state.demo_loaded = False
     with tempfile.TemporaryDirectory() as tmpdir:
         file_paths = []
@@ -290,9 +318,11 @@ if uploaded_files:
     st.session_state.last_timeline = tl
     st.session_state.last_anomaly = anom
 
+    _show_warnings()
     display_results(report, proto, tl, anom)
 
 elif st.session_state.get("last_report") is not None and not demo_clicked:
+    _show_warnings()
     display_results(
         st.session_state.last_report,
         st.session_state.last_proto,
