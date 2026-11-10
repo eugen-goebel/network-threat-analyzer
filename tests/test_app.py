@@ -151,3 +151,40 @@ def test_upload_name_cannot_write_outside_the_temp_dir(tmp_path, monkeypatch, na
     assert not at.exception
     assert not (base / "escaped.pcap").exists()
     assert {m.label: m.value for m in at.metric}.get("Packets Analyzed")
+
+
+def _upload_pcap_and_log(log_name: str, log_bytes: bytes) -> AppTest:
+    data = Path(APP).parent / "data"
+    pcap = (data / "sample_capture.pcap").read_bytes()
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(
+        [
+            ("sample_capture.pcap", pcap, "application/octet-stream"),
+            (log_name, log_bytes, "text/plain"),
+        ]
+    )
+    return at.run()
+
+
+def test_pcap_plus_syslog_upload_analyzes_without_an_exception() -> None:
+    # Regression: uploading a PCAP together with a syslog file crashed with
+    # "ValueError: Invalid isoformat string: 'Mar 15 10:00:27'".
+    log = (Path(APP).parent / "data" / "sample_syslog.log").read_bytes()
+    at = _upload_pcap_and_log("sample_syslog.log", log)
+
+    assert not at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["Packets Analyzed"] == "485"
+
+
+def test_pcap_plus_apache_upload_with_login_attempts_analyzes_without_an_exception() -> None:
+    # Regression: the HTTP brute force rule parsed the raw Apache timestamp.
+    lines = [
+        f'172.16.0.9 - - [15/Mar/2026:10:00:{i:02d} +0100] "POST /api/login HTTP/1.1" 503 10 "-" "x"\n'
+        for i in range(12)
+    ]
+    at = _upload_pcap_and_log("access.log", "".join(lines).encode())
+
+    assert not at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["Packets Analyzed"] == "485"

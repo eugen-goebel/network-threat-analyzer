@@ -34,7 +34,7 @@ class ThreatAnalysisOrchestrator:
         # Phase 1-2: Parse inputs
         print("\n[1/7] Parsing input files...")
         parse_result = None
-        log_result = None
+        log_path = None
 
         for fp in filepaths:
             ext = os.path.splitext(fp)[1].lower()
@@ -46,13 +46,18 @@ class ThreatAnalysisOrchestrator:
                 print(
                     f"  {parse_result.packet_count} packets, {parse_result.unique_src_ips} unique sources"
                 )
-            elif ext == ".log" and log_result is None:
-                print(f"  Parsing log: {fp}")
-                log_result = LogParser().parse(fp)
-                print(f"  {log_result.entry_count} log entries")
+            elif ext == ".log" and log_path is None:
+                log_path = fp
 
         if parse_result is None:
             raise ValueError("At least one PCAP file is required")
+
+        # Parsed after the PCAP so syslog lines (no year) get the capture's year.
+        log_result = None
+        if log_path is not None:
+            print(f"  Parsing log: {log_path}")
+            log_result = LogParser.for_capture(parse_result).parse(log_path)
+            print(f"  {log_result.entry_count} log entries")
 
         # Phase 3: Extract features
         print("\n[3/7] Extracting features...")

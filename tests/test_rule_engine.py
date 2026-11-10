@@ -1,7 +1,10 @@
 """Tests for the rule engine — port scans, brute force, suspicious connections."""
 
+from pathlib import Path
+
 import pytest
 
+from agents.log_parser import LogParser
 from agents.rule_engine import RuleEngine
 from models.network import (
     ConnectionFlow,
@@ -357,3 +360,33 @@ def test_alert_has_source_ips(engine, port_scan_parse_result):
     for alert in alerts:
         assert isinstance(alert.source_ips, list)
         assert len(alert.source_ips) > 0
+
+
+# --- brute force on real parser output ---------------------------------------
+# Regression: LogParser handed raw syslog/Apache timestamps to the rule, so
+# datetime.fromisoformat raised ValueError for any real log file.
+
+SAMPLE_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
+def test_ssh_brute_force_is_found_in_the_sample_syslog(engine, port_scan_parse_result):
+    log_result = LogParser(year=2026).parse(str(SAMPLE_DIR / "sample_syslog.log"))
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    ssh = [a for a in alerts if a.rule_name == "ssh_brute_force"]
+    assert any(a.source_ips == ["10.99.88.77"] for a in ssh)
+
+
+def test_http_brute_force_is_found_in_an_apache_log(engine, port_scan_parse_result, tmp_path):
+    # 503 keeps the severity above "info", which the HTTP rule requires.
+    lines = [
+        f'172.16.0.9 - - [15/Mar/2026:10:00:{i:02d} +0100] "POST /api/login HTTP/1.1" 503 10 "-" "x"\n'
+        for i in range(12)
+    ]
+    path = tmp_path / "access.log"
+    path.write_text("".join(lines))
+    log_result = LogParser().parse(str(path))
+
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    http = [a for a in alerts if a.rule_name == "http_brute_force"]
+    assert [a.source_ips for a in http] == [["172.16.0.9"]]
+    assert http[0].evidence["attempts"] == 12
