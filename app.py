@@ -250,17 +250,20 @@ def run_analysis(file_paths):
 
     with st.spinner("Parsing input files..."):
         parse_result = None
-        log_result = None
+        log_path = None
         for fp in file_paths:
             ext = os.path.splitext(fp)[1].lower()
             if ext in (".pcap", ".pcapng") and parse_result is None:
                 parse_result = PcapParser().parse(fp)
-            elif ext == ".log" and log_result is None:
-                log_result = LogParser().parse(fp)
+            elif ext == ".log" and log_path is None:
+                log_path = fp
 
         if parse_result is None:
             st.error("At least one PCAP file is required.")
             return None, None, None, None
+
+        # Parsed after the PCAP so syslog lines (no year) get the capture's year.
+        log_result = LogParser.for_capture(parse_result).parse(log_path) if log_path else None
 
         # Kept in session state so the notice also shows when the report is
         # redisplayed after the upload is removed.
