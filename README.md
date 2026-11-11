@@ -164,7 +164,7 @@ The included sample data contains intentional attack patterns:
 | Pattern | Source | Details |
 |---------|--------|---------|
 | Port Scan | 192.168.1.100 | Sequential scan of ports 1-80 |
-| SYN Flood | 172.16.0.x (15 IPs) | 80 SYN packets in 10 seconds |
+| SYN Flood | 172.16.0.x (15 IPs) | 150 SYN packets in 4 seconds |
 | C2 Beaconing | 192.168.1.50 | 60-second interval to port 8888 |
 | SSH Brute Force | 10.99.88.77 | 15 failed attempts + 1 success |
 | Directory Traversal | 10.99.88.77 | ../../etc/passwd probes |
