@@ -10,6 +10,14 @@ from models.threats import RuleAlert
 # Apache entries are stored as "METHOD PATH \u2192 STATUS" (see LogParser._parse_apache).
 _HTTP_MESSAGE_RE = re.compile(r"^(\S+) (\S+) \u2192 (\d{3})$")
 _FAILED_LOGIN_STATUSES = {"401", "403"}
+# A login path has one of these as a whole word. The path is split at "/", "-", "_",
+# "." and camelCase humps, so "/wp-login.php", "/api/v1/auth/login" and "/api/userLogin"
+# match, while "/author" or "/authors/list" do not (a substring check on "auth" would
+# hit them). Two neighbouring words are also tried joined, for "/sign-in" and "/log-in".
+# "/blog/login-tips" does match: the word is there, and the POST plus 401/403 filter
+# keeps such hits rare.
+_LOGIN_WORDS = frozenset({"login", "signin", "logon", "auth", "authenticate", "oauth", "token"})
+_PATH_WORD_SPLIT_RE = re.compile(r"[/\-_.]+|(?<=[a-z0-9])(?=[A-Z])")
 
 # Per-IP: one source needs 10 failed logins in 60s.
 _HTTP_IP_THRESHOLD = 10
@@ -154,12 +162,18 @@ def _failed_login_path(entry: LogEntry) -> str | None:
         return None
     method, target, status = match.groups()
     path = target.split("?")[0]
-    lower = path.lower()
     if method != "POST" or status not in _FAILED_LOGIN_STATUSES:
         return None
-    if "login" not in lower and "auth" not in lower:
+    if not _is_login_path(path):
         return None
     return path
+
+
+def _is_login_path(path: str) -> bool:
+    """True if a whole word of the path, or two neighbouring words joined, is a login word."""
+    words = [w.lower() for w in _PATH_WORD_SPLIT_RE.split(path) if w]
+    joined = {a + b for a, b in zip(words, words[1:], strict=False)}
+    return not _LOGIN_WORDS.isdisjoint(words) or not _LOGIN_WORDS.isdisjoint(joined)
 
 
 def _find_distributed_burst(entries: list[LogEntry]) -> list[LogEntry] | None:

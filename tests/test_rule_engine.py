@@ -496,3 +496,40 @@ def test_distributed_brute_force_is_classified_as_brute_force(engine, port_scan_
     assert threats[0].severity_label == "high"
     assert threats[0].title == "Distributed Brute Force from 13 sources"
     assert len(threats[0].source_ips) == 13
+
+
+# --- login paths: whole words only -------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "is_login"),
+    [
+        ("/api/login", True),
+        ("/wp-login.php", True),
+        ("/user/signin", True),
+        ("/oauth/token", True),
+        ("/auth", True),
+        ("/api/v1/auth/login", True),
+        ("/Auth/Login", True),
+        ("/auth?next=/home", True),
+        ("/api/userLogin", True),
+        ("/sign-in", True),
+        ("/account/log-in", True),
+        # Border case, decided: the word "login" is in the path, so it counts.
+        ("/blog/login-tips", True),
+        ("/author", False),
+        ("/authors/list", False),
+        ("/authority/check", False),
+        ("/tokenizer", False),
+        ("/blogin", False),
+        ("/api/data", False),
+    ],
+)
+def test_http_brute_force_matches_login_paths_as_whole_words(
+    engine, port_scan_parse_result, tmp_path, path, is_login
+):
+    lines = [_apache_line("172.16.0.9", i, 401, path=path) for i in range(12)]
+    log_result = _parse_apache(tmp_path, lines)
+
+    alerts = _http_alerts(engine, port_scan_parse_result, log_result, "http_brute_force")
+    assert bool(alerts) is is_login
