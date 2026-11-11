@@ -70,18 +70,22 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 |--------|-----------------|----------|
 | Vertical Port Scan | >20 ports scanned on single target in 60s | High |
 | Horizontal Port Scan | Same port probed on >10 targets in 60s | High |
-| SYN Scan | >80% SYN-only packets from single source | Medium |
+| SYN Scan | >20 TCP packets from single source, >80% of them SYN-only | Medium |
 | XMAS Scan | TCP packets with FIN+PSH+URG flags | High |
-| SYN Flood | >100 SYN packets from >5 sources in 10s | Critical |
-| UDP/ICMP Flood | Volume threshold exceeded for single target | Critical/High |
-| SSH Brute Force | >5 failed logins from same IP in 60s | High |
-| HTTP Brute Force | ≥10 failed logins (POST to a login/auth path, status 401/403) from same IP in 60s | High |
-| Distributed HTTP Brute Force | ≥20 failed logins on the same login/auth path from ≥3 IPs in 60s | High |
-| C2 Beaconing | Regular-interval connections (std dev < 5s) | Critical |
-| Data Exfiltration | >10MB outbound from internal to external IP | High |
-| Malicious Ports | Traffic on known backdoor ports (4444, 1337, ...) | High |
+| SYN Flood | >100 SYN-only packets to one target from >5 sources in 10s | Critical |
+| UDP Flood | >500 UDP packets to one target in 10s | Critical |
+| ICMP Flood | >50 ICMP packets to one target in 10s | High |
+| HTTP Flood | >100 packets to one target on port 80/443 from >5 sources in 10s | Critical |
+| SSH Brute Force | ≥5 failed logins from same IP in 60s | High |
+| HTTP Brute Force | ≥10 failed logins (POST to a login path, status 401/403) from same IP in 60s | High |
+| Distributed HTTP Brute Force | ≥20 failed logins on the same login path from ≥3 IPs in 60s | High |
+| C2 Beaconing | >5 packets per source/destination pair with interval std dev < 5s | Critical |
+| Data Exfiltration | >10,000,000 bytes in one flow from internal to external IP | High |
+| Malicious Ports | Traffic from or to known backdoor/IRC ports (4444, 5555, 8888, 1337, 31337, 6667, 6697) | High |
 | DNS Tunneling (Volume) | >100 DNS queries from single source in 60s | High |
 | DNS Tunneling (Oversized) | ≥20 DNS packets with payload >100 bytes per source | High |
+
+A login path has one of the words `login`, `signin`, `logon`, `auth`, `authenticate`, `oauth` or `token` as a whole word. The path is split at `/`, `-`, `_`, `.` and camelCase, and two neighbouring words also count joined: `/wp-login.php`, `/api/userLogin` and `/sign-in` match, `/author` does not.
 
 ### ML Anomaly Detection
 
@@ -166,7 +170,9 @@ The included sample data contains intentional attack patterns:
 | Directory Traversal | 10.99.88.77 | ../../etc/passwd probes |
 | Recon Scanning | 203.0.113.50 | /wp-admin, /.env, /.git probes |
 
-Generate fresh sample data:
+All three files share one timeline that starts at 2026-03-15 09:00 UTC (PCAP in epoch time, syslog in UTC without a zone, Apache as `10:00 +0100`), independent of the time zone of the machine that generates them.
+
+Generate fresh sample data (optional argument: output directory):
 ```bash
 python data/generate_samples.py
 ```

@@ -2,16 +2,27 @@
 
 import os
 import random
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 from scapy.all import DNS, DNSQR, IP, TCP, UDP, Raw, wrpcap
 
 random.seed(42)
 
+# One explicit, zone-aware timeline shared by all three files, so the output does not
+# depend on the time zone of the machine that runs the generator.
+# UTC is the one zone the analyzer can read without guessing: PCAP times are epoch
+# seconds (UTC), and the log parser reads zone-less syslog times as UTC.
+# 09:00 UTC is 10:00 in Central European Time, the wall clock the samples used before.
+BASE_TIME = datetime(2026, 3, 15, 9, 0, 0, tzinfo=timezone.utc)
+# Apache writes its own offset into every line. A non-UTC offset on purpose: it makes
+# the sample exercise the parser's offset handling. +01:00 is CET on 15 March 2026
+# (summer time starts on 29 March), so 10:00 +0100 is the same instant as 09:00 UTC.
+APACHE_TZ = timezone(timedelta(hours=1))
+
 
 def generate_pcap(filepath: str):
-    base_time = datetime(2026, 3, 15, 10, 0, 0)
-    base_epoch = base_time.timestamp()
+    base_epoch = BASE_TIME.timestamp()
     packets = []
 
     # --- Normal traffic (~300 packets, spread over 5 minutes) ---
@@ -112,11 +123,12 @@ def generate_pcap(filepath: str):
 
 
 def generate_syslog(filepath: str):
-    base_time = datetime(2026, 3, 15, 10, 0, 0)
+    base_time = BASE_TIME
     lines = []
 
     def fmt_ts(dt):
-        return dt.strftime("Mar 15 %H:%M:%S")
+        # RFC 3164: no year, no zone. The generator writes UTC wall-clock time.
+        return f"{dt:%b} {dt.day:>2} {dt:%H:%M:%S}"
 
     # --- Normal entries (~150 lines) ---
 
@@ -146,7 +158,7 @@ def generate_syslog(filepath: str):
         )
         lines.append((base_time + offset, f"{ts} {tmpl_hostname} {msg}"))
 
-    # --- SSH brute force (~15 lines within 45 seconds starting at 10:02:00) ---
+    # --- SSH brute force (~15 lines within 45 seconds starting at base + 2 min) ---
 
     brute_start = base_time + timedelta(minutes=2)
     base_port = 50000
@@ -201,7 +213,7 @@ def generate_syslog(filepath: str):
 
 
 def generate_apache(filepath: str):
-    base_time = datetime(2026, 3, 15, 10, 0, 0)
+    base_time = BASE_TIME
     lines = []
 
     normal_paths = [
@@ -225,7 +237,7 @@ def generate_apache(filepath: str):
     referers = ["-", "https://example.com/", "https://www.google.com/", "https://github.com/"]
 
     def fmt_ts(dt):
-        return dt.strftime("15/Mar/2026:%H:%M:%S +0100")
+        return dt.astimezone(APACHE_TZ).strftime("%d/%b/%Y:%H:%M:%S %z")
 
     # --- Normal traffic (~220 lines) ---
 
@@ -331,8 +343,11 @@ def generate_apache(filepath: str):
 
 
 if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    generate_pcap(os.path.join(script_dir, "sample_capture.pcap"))
-    generate_syslog(os.path.join(script_dir, "sample_syslog.log"))
-    generate_apache(os.path.join(script_dir, "sample_apache.log"))
+    # Optional first argument: output directory (default: next to this script).
+    out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(out_dir, exist_ok=True)
+    # The order matters: the three generators share the seeded random state.
+    generate_pcap(os.path.join(out_dir, "sample_capture.pcap"))
+    generate_syslog(os.path.join(out_dir, "sample_syslog.log"))
+    generate_apache(os.path.join(out_dir, "sample_apache.log"))
     print("Sample data generated successfully.")
