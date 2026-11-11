@@ -9,6 +9,11 @@ from models.threats import RuleAlert
 
 MALICIOUS_PORTS = {4444, 5555, 8888, 1337, 31337, 6667, 6697}
 
+# A beacon calls home on a timer, in practice every 10 s or slower. Faster packets are a
+# burst (a port scan, a flood, one download); their gaps are regular by accident and a
+# small standard deviation says nothing about a timer.
+MIN_BEACON_INTERVAL_SECONDS = 10
+
 
 def _is_internal_ip(ip: str) -> bool:
     """Check if an IP address falls within RFC 1918 private ranges."""
@@ -77,7 +82,7 @@ def detect(packets: list[PacketRecord], flows: list[ConnectionFlow]) -> list[Rul
             continue
         avg = statistics.mean(intervals)
         std = statistics.stdev(intervals)
-        if std < 5:
+        if avg >= MIN_BEACON_INTERVAL_SECONDS and std < 5:
             alerts.append(
                 RuleAlert(
                     rule_name="beaconing",

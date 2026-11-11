@@ -533,3 +533,81 @@ def test_http_brute_force_matches_login_paths_as_whole_words(
 
     alerts = _http_alerts(engine, port_scan_parse_result, log_result, "http_brute_force")
     assert bool(alerts) is is_login
+
+
+# --- bursts are not beacons, SYN floods are not HTTP floods ---------------------
+
+
+def _packet_result(packets: list[PacketRecord]) -> ParseResult:
+    return ParseResult(
+        source_file="burst.pcap",
+        file_type="pcap",
+        packet_count=len(packets),
+        time_range=f"{packets[0].timestamp} \u2013 {packets[-1].timestamp}",
+        unique_src_ips=len({p.src_ip for p in packets}),
+        unique_dst_ips=len({p.dst_ip for p in packets}),
+        protocol_distribution={"TCP": len(packets)},
+        packets=packets,
+        flows=[],
+    )
+
+
+def _tcp(ts: str, src: str, flags: list[str], dst_port: int = 443) -> PacketRecord:
+    return PacketRecord(
+        timestamp=ts,
+        src_ip=src,
+        dst_ip="10.0.0.1",
+        src_port=50000,
+        dst_port=dst_port,
+        protocol="TCP",
+        size=60,
+        tcp_flags=flags,
+    )
+
+
+def test_a_fast_regular_burst_is_not_beaconing(engine):
+    # 10 packets 0.5 s apart: perfectly regular, but no timer calls home twice a second.
+    packets = [
+        _tcp(f"2026-03-15T10:00:{i // 2:02d}.{5 * (i % 2)}00000", "192.168.1.200", ["PSH", "ACK"])
+        for i in range(10)
+    ]
+    alerts = engine.analyze(_packet_result(packets))
+    assert [a for a in alerts if a.rule_name == "beaconing"] == []
+
+
+def test_a_slow_regular_connection_is_still_beaconing(engine):
+    # One packet a minute for ten minutes, the classic C2 check-in.
+    packets = [
+        _tcp(f"2026-03-15T10:{i:02d}:00", "192.168.1.200", ["PSH", "ACK"]) for i in range(10)
+    ]
+    alerts = engine.analyze(_packet_result(packets))
+    beacons = [a for a in alerts if a.rule_name == "beaconing"]
+    assert len(beacons) == 1
+    assert beacons[0].evidence["avg_interval_seconds"] == 60
+
+
+def _flood(flags: list[str], dst_port: int) -> list[PacketRecord]:
+    # 150 packets from 15 sources within 3 seconds, one 10 s window.
+    return [
+        _tcp(
+            f"2026-03-15T10:00:0{i // 50}.{(i % 50) * 2:02d}0000",
+            f"172.16.0.{i % 15 + 1}",
+            flags,
+            dst_port=dst_port,
+        )
+        for i in range(150)
+    ]
+
+
+def test_a_syn_flood_on_port_80_is_not_also_an_http_flood(engine):
+    alerts = engine.analyze(_packet_result(_flood(["SYN"], dst_port=80)))
+    names = [a.rule_name for a in alerts]
+    assert names.count("syn_flood") == 1
+    assert "http_flood" not in names
+
+
+def test_an_http_flood_is_still_found(engine):
+    alerts = engine.analyze(_packet_result(_flood(["PSH", "ACK"], dst_port=80)))
+    floods = [a for a in alerts if a.rule_name == "http_flood"]
+    assert len(floods) == 1
+    assert floods[0].evidence["source_count"] == 15
