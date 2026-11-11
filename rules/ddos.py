@@ -9,6 +9,10 @@ from models.threats import RuleAlert
 WINDOW_SECONDS = 10
 
 
+def _is_syn_only(pkt: PacketRecord) -> bool:
+    return "SYN" in pkt.tcp_flags and "ACK" not in pkt.tcp_flags
+
+
 def _bucket_key(ts: datetime, base: datetime) -> int:
     """Return the time-window index for a timestamp."""
     return int((ts - base).total_seconds() // WINDOW_SECONDS)
@@ -36,7 +40,7 @@ def detect(packets: list[PacketRecord], flows: list[ConnectionFlow]) -> list[Rul
         # --- SYN flood ---
         syn_by_dst: dict[str, list[PacketRecord]] = defaultdict(list)
         for pkt in w_pkts:
-            if "SYN" in pkt.tcp_flags and "ACK" not in pkt.tcp_flags:
+            if _is_syn_only(pkt):
                 syn_by_dst[pkt.dst_ip].append(pkt)
 
         for dst_ip, syn_pkts in syn_by_dst.items():
@@ -114,9 +118,11 @@ def detect(packets: list[PacketRecord], flows: list[ConnectionFlow]) -> list[Rul
                 )
 
         # --- HTTP flood ---
+        # SYN-only packets belong to the SYN flood rule above. Counting them here too
+        # would report one SYN flood on port 80 or 443 a second time as an HTTP flood.
         http_by_dst: dict[str, list[PacketRecord]] = defaultdict(list)
         for pkt in w_pkts:
-            if pkt.dst_port in (80, 443):
+            if pkt.dst_port in (80, 443) and not _is_syn_only(pkt):
                 http_by_dst[pkt.dst_ip].append(pkt)
 
         for dst_ip, http_pkts in http_by_dst.items():
