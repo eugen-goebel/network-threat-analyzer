@@ -180,7 +180,7 @@ def test_pcap_plus_syslog_upload_analyzes_without_an_exception() -> None:
 def test_pcap_plus_apache_upload_with_login_attempts_analyzes_without_an_exception() -> None:
     # Regression: the HTTP brute force rule parsed the raw Apache timestamp.
     lines = [
-        f'172.16.0.9 - - [15/Mar/2026:10:00:{i:02d} +0100] "POST /api/login HTTP/1.1" 503 10 "-" "x"\n'
+        f'172.16.0.9 - - [15/Mar/2026:10:00:{i:02d} +0100] "POST /api/login HTTP/1.1" 401 10 "-" "x"\n'
         for i in range(12)
     ]
     at = _upload_pcap_and_log("access.log", "".join(lines).encode())

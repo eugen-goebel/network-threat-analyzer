@@ -1,10 +1,24 @@
 """Brute force detection — SSH and HTTP login attempts."""
 
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from models.network import LogEntry, PacketRecord
 from models.threats import RuleAlert
+
+# Apache entries are stored as "METHOD PATH \u2192 STATUS" (see LogParser._parse_apache).
+_HTTP_MESSAGE_RE = re.compile(r"^(\S+) (\S+) \u2192 (\d{3})$")
+_FAILED_LOGIN_STATUSES = {"401", "403"}
+
+# Per-IP: one source needs 10 failed logins in 60s.
+_HTTP_IP_THRESHOLD = 10
+# Distributed: 20 failed logins on one path in 60s from at least 3 sources. Twice the
+# per-IP threshold, so a few users mistyping a password do not trigger it, and 3 sources
+# so that one or two noisy IPs stay with the per-IP rule. Heuristic, not calibrated.
+_HTTP_DISTRIBUTED_ATTEMPTS = 20
+_HTTP_DISTRIBUTED_MIN_SOURCES = 3
+_HTTP_WINDOW_SECONDS = 60
 
 
 def _find_bursts(timestamps: list[datetime], threshold: int, window_seconds: int = 60):
@@ -56,18 +70,24 @@ def detect(packets: list[PacketRecord], log_entries: list[LogEntry]) -> list[Rul
             )
 
     # --- HTTP brute force ---
-    http_by_src: dict[str, list[LogEntry]] = defaultdict(list)
+    # A failed login is a POST to a login/auth path answered with 401 or 403. The
+    # status is read from the message, not from entry.severity: severity feeds
+    # error_entries and the ML features, and 5xx (server error) is not a failed login.
+    failed_logins: list[tuple[LogEntry, str]] = []
     for entry in log_entries:
-        if (
-            "POST" in entry.message
-            and ("login" in entry.message.lower() or "auth" in entry.message.lower())
-            and entry.severity != "info"
-        ):
-            http_by_src[entry.source_ip].append(entry)
+        path = _failed_login_path(entry)
+        if path is not None:
+            failed_logins.append((entry, path))
+
+    http_by_src: dict[str, list[LogEntry]] = defaultdict(list)
+    for entry, _path in failed_logins:
+        http_by_src[entry.source_ip].append(entry)
 
     for src_ip, entries in http_by_src.items():
         timestamps = [datetime.fromisoformat(e.timestamp) for e in entries]
-        for count, _duration in _find_bursts(timestamps, threshold=10):
+        for count, _duration in _find_bursts(
+            timestamps, threshold=_HTTP_IP_THRESHOLD, window_seconds=_HTTP_WINDOW_SECONDS
+        ):
             paths = list({_extract_path(e.message) for e in entries})
             alerts.append(
                 RuleAlert(
@@ -86,7 +106,75 @@ def detect(packets: list[PacketRecord], log_entries: list[LogEntry]) -> list[Rul
                 )
             )
 
+    # --- Distributed HTTP brute force ---
+    # Many sources, each below the per-IP threshold, hitting the same login path.
+    # The same burst can also raise per-IP alerts for sources that are loud enough;
+    # both are reported on purpose (different rule_name, different source_ips).
+    http_by_path: dict[str, list[LogEntry]] = defaultdict(list)
+    for entry, path in failed_logins:
+        http_by_path[path].append(entry)
+
+    for path, entries in http_by_path.items():
+        burst = _find_distributed_burst(entries)
+        if burst is None:
+            continue
+        ips = sorted({e.source_ip for e in burst})
+        start = datetime.fromisoformat(burst[0].timestamp)
+        end = datetime.fromisoformat(burst[-1].timestamp)
+        duration = (end - start).total_seconds()
+        alerts.append(
+            RuleAlert(
+                rule_name="http_distributed_brute_force",
+                severity="high",
+                category="BRUTE_FORCE",
+                description=(
+                    f"Distributed HTTP login brute force on {path}: "
+                    f"{len(burst)} failed attempts from {len(ips)} sources in {duration:.0f}s"
+                ),
+                source_ips=ips,
+                dest_ips=[],
+                timestamps=[e.timestamp for e in burst],
+                evidence={
+                    "attack_type": "http_login_distributed",
+                    "attempts": len(burst),
+                    "unique_sources": len(ips),
+                    "duration_seconds": duration,
+                    "paths_targeted": [path],
+                },
+            )
+        )
+
     return alerts
+
+
+def _failed_login_path(entry: LogEntry) -> str | None:
+    """Return the path if the entry is a failed login (POST to login/auth, 401/403)."""
+    match = _HTTP_MESSAGE_RE.match(entry.message)
+    if match is None:
+        return None
+    method, target, status = match.groups()
+    path = target.split("?")[0]
+    lower = path.lower()
+    if method != "POST" or status not in _FAILED_LOGIN_STATUSES:
+        return None
+    if "login" not in lower and "auth" not in lower:
+        return None
+    return path
+
+
+def _find_distributed_burst(entries: list[LogEntry]) -> list[LogEntry] | None:
+    """First window of failed logins big enough and from enough distinct sources."""
+    ordered = sorted(entries, key=lambda e: datetime.fromisoformat(e.timestamp))
+    times = [datetime.fromisoformat(e.timestamp) for e in ordered]
+    for i, start in enumerate(times):
+        end_limit = start + timedelta(seconds=_HTTP_WINDOW_SECONDS)
+        burst = [e for e, t in zip(ordered[i:], times[i:], strict=True) if t <= end_limit]
+        if (
+            len(burst) >= _HTTP_DISTRIBUTED_ATTEMPTS
+            and len({e.source_ip for e in burst}) >= _HTTP_DISTRIBUTED_MIN_SOURCES
+        ):
+            return burst
+    return None
 
 
 def _extract_path(message: str) -> str:
