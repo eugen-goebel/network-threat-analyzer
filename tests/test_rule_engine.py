@@ -430,7 +430,7 @@ def test_http_brute_force_ignores_successful_logins_and_other_requests(
 
 
 def test_distributed_brute_force_is_found_in_the_sample_apache_log(engine, port_scan_parse_result):
-    # 40 failed logins within 5s from 13 IPs (2-7 each): no single IP reaches the per-IP threshold.
+    # 40 failed logins within 5s from 15 IPs (1-6 each): no single IP reaches the per-IP threshold.
     log_result = LogParser().parse(str(SAMPLE_DIR / "sample_apache.log"))
     alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
 
@@ -439,7 +439,7 @@ def test_distributed_brute_force_is_found_in_the_sample_apache_log(engine, port_
     alert = distributed[0]
     assert alert.category == "BRUTE_FORCE"
     assert alert.severity == "high"
-    assert len(alert.source_ips) == 13
+    assert len(alert.source_ips) == 15
     assert alert.evidence["attempts"] == 40
     assert alert.evidence["paths_targeted"] == ["/api/login"]
     assert not [a for a in alerts if a.rule_name == "http_brute_force"]
@@ -494,8 +494,8 @@ def test_distributed_brute_force_is_classified_as_brute_force(engine, port_scan_
     threats = [t for t in report.threats if t.category == "BRUTE_FORCE"]
     assert len(threats) == 1
     assert threats[0].severity_label == "high"
-    assert threats[0].title == "Distributed Brute Force from 13 sources"
-    assert len(threats[0].source_ips) == 13
+    assert threats[0].title == "Distributed Brute Force from 15 sources"
+    assert len(threats[0].source_ips) == 15
 
 
 # --- login paths: whole words only -------------------------------------------

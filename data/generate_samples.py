@@ -7,7 +7,18 @@ from datetime import datetime, timedelta, timezone
 
 from scapy.all import DNS, DNSQR, IP, TCP, UDP, Raw, wrpcap
 
-random.seed(42)
+SEED = 42
+
+
+def _rng(section: str) -> random.Random:
+    """Return a private, fixed-seed random generator for one section of one file.
+
+    The sections do not share a random stream, so changing the size of one section
+    (say, more packets in the SYN flood) cannot move the values of any other section
+    or of the other files. String seeds are hashed the same way on every run.
+    """
+    return random.Random(f"{SEED}:{section}")
+
 
 # One explicit, zone-aware timeline shared by all three files, so the output does not
 # depend on the time zone of the machine that runs the generator.
@@ -36,32 +47,33 @@ def generate_pcap(filepath: str):
         b"mail.company.org",
     ]
 
+    rng = _rng("pcap.normal")
     for _ in range(300):
-        offset = random.uniform(0, 300)
-        src_host = random.randint(10, 50)
-        roll = random.random()
+        offset = rng.uniform(0, 300)
+        src_host = rng.randint(10, 50)
+        roll = rng.random()
 
         if roll < 0.4:
             # HTTP / HTTPS traffic
-            dport = random.choice([80, 443])
+            dport = rng.choice([80, 443])
             pkt = IP(src=f"192.168.1.{src_host}", dst="10.0.0.1") / TCP(
-                sport=random.randint(49152, 65535),
+                sport=rng.randint(49152, 65535),
                 dport=dport,
                 flags="SA",
             )
         elif roll < 0.7:
             # DNS queries
-            domain = random.choice(normal_domains)
+            domain = rng.choice(normal_domains)
             pkt = (
                 IP(src=f"192.168.1.{src_host}", dst="10.0.0.53")
-                / UDP(sport=random.randint(49152, 65535), dport=53)
+                / UDP(sport=rng.randint(49152, 65535), dport=53)
                 / DNS(rd=1, qd=DNSQR(qname=domain))
             )
         else:
             # HTTPS to external
-            ext_host = random.randint(1, 254)
+            ext_host = rng.randint(1, 254)
             pkt = IP(src=f"192.168.1.{src_host}", dst=f"203.0.113.{ext_host}") / TCP(
-                sport=random.randint(49152, 65535),
+                sport=rng.randint(49152, 65535),
                 dport=443,
                 flags="SA",
             )
@@ -71,23 +83,32 @@ def generate_pcap(filepath: str):
 
     # --- Port scan pattern (~80 packets, within 30 seconds starting at +60s) ---
 
+    rng = _rng("pcap.port_scan")
     for port in range(1, 81):
         offset = 60 + (port - 1) * (30.0 / 80)
         pkt = IP(src="192.168.1.100", dst="10.0.0.1") / TCP(
-            sport=random.randint(49152, 65535),
+            sport=rng.randint(49152, 65535),
             dport=port,
             flags="S",
         )
         pkt.time = base_epoch + offset
         packets.append(pkt)
 
-    # --- SYN flood pattern (~80 packets, within 10 seconds starting at +180s) ---
+    # --- SYN flood pattern (150 packets, within 4 seconds, +185s to +189s) ---
+    #
+    # rules/ddos.py reports syn_flood only for more than 100 SYN-only packets from more
+    # than 5 sources to one target inside one fixed 10 s window. Those windows start at
+    # the first packet of the capture (t0), not at BASE_TIME: the window that holds the
+    # burst is [180 + t0, 190 + t0). The normal traffic above puts t0 within the first
+    # seconds, so a burst at +185s..+189s sits in one window for any t0 up to 5 s. A
+    # burst across a window edge is cut in two and can miss the threshold.
 
-    for _ in range(80):
-        offset = 180 + random.uniform(0, 10)
-        src_host = random.randint(1, 20)
+    rng = _rng("pcap.syn_flood")
+    for _ in range(150):
+        offset = 185 + rng.uniform(0, 4)
+        src_host = rng.randint(1, 15)
         pkt = IP(src=f"172.16.0.{src_host}", dst="10.0.0.1") / TCP(
-            sport=random.randint(49152, 65535),
+            sport=rng.randint(49152, 65535),
             dport=80,
             flags="S",
         )
@@ -96,11 +117,12 @@ def generate_pcap(filepath: str):
 
     # --- Beaconing pattern (~20 packets, every 60 seconds starting at +30s) ---
 
+    rng = _rng("pcap.beaconing")
     for i in range(20):
         offset = 30 + i * 60
         pkt = (
             IP(src="192.168.1.50", dst="198.51.100.1")
-            / TCP(sport=random.randint(49152, 65535), dport=8888, flags="S")
+            / TCP(sport=rng.randint(49152, 65535), dport=8888, flags="S")
             / Raw(load=b"beacon")
         )
         pkt.time = base_epoch + offset
@@ -108,12 +130,13 @@ def generate_pcap(filepath: str):
 
     # --- Data exfiltration (~5 packets at +240s) ---
 
+    rng = _rng("pcap.exfiltration")
     for i in range(5):
         offset = 240 + i * 0.5
         pkt = (
             IP(src="192.168.1.30", dst="203.0.113.99")
-            / TCP(sport=random.randint(49152, 65535), dport=443, flags="PA")
-            / Raw(load=b"x" * random.randint(1400, 1500))
+            / TCP(sport=rng.randint(49152, 65535), dport=443, flags="PA")
+            / Raw(load=b"x" * rng.randint(1400, 1500))
         )
         pkt.time = base_epoch + offset
         packets.append(pkt)
@@ -146,15 +169,16 @@ def generate_syslog(filepath: str):
         ("firewall", "systemd[1]: Finished Daily man-db regeneration."),
     ]
 
+    rng = _rng("syslog.normal")
     for _ in range(150):
-        offset = timedelta(seconds=random.uniform(0, 300))
+        offset = timedelta(seconds=rng.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
-        tmpl_hostname, tmpl_msg = random.choice(services_normal)
+        tmpl_hostname, tmpl_msg = rng.choice(services_normal)
         msg = tmpl_msg.format(
-            pid=random.randint(1000, 30000),
-            session=random.randint(1, 500),
-            uptime=f"{random.randint(400000, 430000)}.{random.randint(100, 999)}",
-            port=random.randint(49152, 65535),
+            pid=rng.randint(1000, 30000),
+            session=rng.randint(1, 500),
+            uptime=f"{rng.randint(400000, 430000)}.{rng.randint(100, 999)}",
+            port=rng.randint(49152, 65535),
         )
         lines.append((base_time + offset, f"{ts} {tmpl_hostname} {msg}"))
 
@@ -196,12 +220,13 @@ def generate_syslog(filepath: str):
         ("gateway", "sshd[8200]: Connection closed by 203.0.113.50 port 22 [preauth]"),
     ]
 
+    rng = _rng("syslog.errors")
     for _ in range(20):
-        offset = timedelta(seconds=random.uniform(0, 300))
+        offset = timedelta(seconds=rng.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
-        tmpl_hostname, tmpl_msg = random.choice(error_templates)
+        tmpl_hostname, tmpl_msg = rng.choice(error_templates)
         msg = tmpl_msg.format(
-            uptime=f"{random.randint(423000, 423500)}.{random.randint(100, 999)}",
+            uptime=f"{rng.randint(423000, 423500)}.{rng.randint(100, 999)}",
         )
         lines.append((base_time + offset, f"{ts} {tmpl_hostname} {msg}"))
 
@@ -241,15 +266,16 @@ def generate_apache(filepath: str):
 
     # --- Normal traffic (~220 lines) ---
 
+    rng = _rng("apache.normal")
     for _i in range(220):
-        offset = timedelta(seconds=random.uniform(0, 300))
+        offset = timedelta(seconds=rng.uniform(0, 300))
         ts = fmt_ts(base_time + offset)
-        ip = f"192.168.1.{random.randint(10, 50)}"
-        path = random.choice(normal_paths)
-        status = random.choice([200, 200, 200, 200, 301, 304])
-        size = random.randint(200, 15000)
-        agent = random.choice(normal_agents)
-        referer = random.choice(referers)
+        ip = f"192.168.1.{rng.randint(10, 50)}"
+        path = rng.choice(normal_paths)
+        status = rng.choice([200, 200, 200, 200, 301, 304])
+        size = rng.randint(200, 15000)
+        agent = rng.choice(normal_agents)
+        referer = rng.choice(referers)
         line = f'{ip} - - [{ts}] "GET {path} HTTP/1.1" {status} {size} "{referer}" "{agent}"'
         lines.append((base_time + offset, line))
 
@@ -273,10 +299,11 @@ def generate_apache(filepath: str):
         "/..%255c..%255c..%255cetc/passwd",
     ]
 
+    rng = _rng("apache.traversal")
     for _i, path in enumerate(traversal_paths):
-        offset = timedelta(seconds=random.uniform(60, 120))
+        offset = timedelta(seconds=rng.uniform(60, 120))
         ts = fmt_ts(base_time + offset)
-        agent = random.choice(normal_agents)
+        agent = rng.choice(normal_agents)
         line = f'10.99.88.77 - - [{ts}] "GET {path} HTTP/1.1" 403 287 "-" "{agent}"'
         lines.append((base_time + offset, line))
 
@@ -317,8 +344,9 @@ def generate_apache(filepath: str):
     ]
 
     scan_agent = "Mozilla/5.0 (compatible; Nmap Scripting Engine)"
+    rng = _rng("apache.scan_404")
     for _i, path in enumerate(scan_paths):
-        offset = timedelta(seconds=random.uniform(30, 90))
+        offset = timedelta(seconds=rng.uniform(30, 90))
         ts = fmt_ts(base_time + offset)
         line = f'203.0.113.50 - - [{ts}] "GET {path} HTTP/1.1" 404 196 "-" "{scan_agent}"'
         lines.append((base_time + offset, line))
@@ -326,12 +354,13 @@ def generate_apache(filepath: str):
     # --- HTTP flood (~40 lines within 5 seconds) ---
 
     flood_start = base_time + timedelta(seconds=200)
+    rng = _rng("apache.http_flood")
     for _i in range(40):
-        offset = timedelta(seconds=random.uniform(0, 5))
+        offset = timedelta(seconds=rng.uniform(0, 5))
         ts = fmt_ts(flood_start + offset)
-        ip = f"172.16.0.{random.randint(1, 15)}"
-        agent = random.choice(normal_agents)
-        size = random.randint(100, 300)
+        ip = f"172.16.0.{rng.randint(1, 15)}"
+        agent = rng.choice(normal_agents)
+        size = rng.randint(100, 300)
         line = f'{ip} - - [{ts}] "POST /api/login HTTP/1.1" 401 {size} "-" "{agent}"'
         lines.append((flood_start + offset, line))
 
@@ -346,7 +375,7 @@ if __name__ == "__main__":
     # Optional first argument: output directory (default: next to this script).
     out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
     os.makedirs(out_dir, exist_ok=True)
-    # The order matters: the three generators share the seeded random state.
+    # Each section has its own seeded generator, so the order does not matter.
     generate_pcap(os.path.join(out_dir, "sample_capture.pcap"))
     generate_syslog(os.path.join(out_dir, "sample_syslog.log"))
     generate_apache(os.path.join(out_dir, "sample_apache.log"))

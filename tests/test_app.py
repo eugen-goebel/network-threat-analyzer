@@ -166,6 +166,14 @@ def _upload_pcap_and_log(log_name: str, log_bytes: bytes) -> AppTest:
     return at.run()
 
 
+def _sample_packet_count() -> str:
+    # Read from the file itself, so the tests do not break whenever the sample data changes.
+    from agents.pcap_parser import PcapParser
+
+    sample = Path(APP).parent / "data" / "sample_capture.pcap"
+    return str(PcapParser(max_packets=None).parse(str(sample)).packet_count)
+
+
 def test_pcap_plus_syslog_upload_analyzes_without_an_exception() -> None:
     # Regression: uploading a PCAP together with a syslog file crashed with
     # "ValueError: Invalid isoformat string: 'Mar 15 10:00:27'".
@@ -174,7 +182,7 @@ def test_pcap_plus_syslog_upload_analyzes_without_an_exception() -> None:
 
     assert not at.exception
     metrics = {m.label: m.value for m in at.metric}
-    assert metrics["Packets Analyzed"] == "485"
+    assert metrics["Packets Analyzed"] == _sample_packet_count()
 
 
 def test_pcap_plus_apache_upload_with_login_attempts_analyzes_without_an_exception() -> None:
@@ -187,4 +195,4 @@ def test_pcap_plus_apache_upload_with_login_attempts_analyzes_without_an_excepti
 
     assert not at.exception
     metrics = {m.label: m.value for m in at.metric}
-    assert metrics["Packets Analyzed"] == "485"
+    assert metrics["Packets Analyzed"] == _sample_packet_count()

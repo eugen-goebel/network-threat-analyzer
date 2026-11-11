@@ -13,9 +13,9 @@ from agents.pcap_parser import PcapParser
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "data"
 
-# Measured on the shipped samples: 185 of 186 syslog and 305 of 306 Apache entries
-# fall inside the packet windows (the one miss per file is an entry in the first
-# 0.5 s, before the first packet). A one-hour shift, the bug this guards against,
+# Measured on the shipped samples: 184 of 186 syslog and 305 of 306 Apache entries
+# fall inside the packet windows (the misses are entries in the first 1.7 s, before
+# the first packet). A one-hour shift, the bug this guards against,
 # gives 0. 95% leaves room for another seed but fails on any real misalignment.
 MIN_SHARE_IN_WINDOWS = 0.95
 
@@ -42,13 +42,11 @@ def test_generator_output_does_not_depend_on_the_machine_time_zone(zone, tmp_pat
 
     def generate(target: Path) -> dict[str, bytes]:
         target.mkdir()
-        random.seed(42)  # the generators share the seeded module-level random state
         generate_samples.generate_pcap(str(target / "sample_capture.pcap"))
         generate_samples.generate_syslog(str(target / "sample_syslog.log"))
         generate_samples.generate_apache(str(target / "sample_apache.log"))
         return {p.name: p.read_bytes() for p in target.iterdir()}
 
-    rng_state = random.getstate()
     try:
         monkeypatch.setenv("TZ", "UTC")
         time.tzset()
@@ -60,6 +58,30 @@ def test_generator_output_does_not_depend_on_the_machine_time_zone(zone, tmp_pat
     finally:
         monkeypatch.undo()
         time.tzset()
-        random.setstate(rng_state)
 
     assert other == reference
+
+
+def test_generator_output_does_not_depend_on_the_global_random_state_or_call_order(tmp_path):
+    # Every section has its own seeded generator. A change to one section, or a
+    # different global seed or order of the files, must not move any other value.
+    from data import generate_samples
+
+    generate_samples.generate_apache(str(tmp_path / "apache_first.log"))
+    generate_samples.generate_syslog(str(tmp_path / "syslog_first.log"))
+    generate_samples.generate_pcap(str(tmp_path / "pcap_first.pcap"))
+    rng_state = random.getstate()
+    try:
+        random.seed(12345)
+        generate_samples.generate_pcap(str(tmp_path / "sample_capture.pcap"))
+        generate_samples.generate_syslog(str(tmp_path / "sample_syslog.log"))
+        generate_samples.generate_apache(str(tmp_path / "sample_apache.log"))
+    finally:
+        random.setstate(rng_state)
+
+    for first, again in [
+        ("pcap_first.pcap", "sample_capture.pcap"),
+        ("syslog_first.log", "sample_syslog.log"),
+        ("apache_first.log", "sample_apache.log"),
+    ]:
+        assert (tmp_path / first).read_bytes() == (tmp_path / again).read_bytes(), again
