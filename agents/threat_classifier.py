@@ -87,6 +87,8 @@ class ThreatClassifier:
                 if alert.dest_ips
                 else "DDoS Attack detected"
             )
+        elif category == "BRUTE_FORCE" and len(alert.source_ips) > 1:
+            title = f"Distributed Brute Force from {len(alert.source_ips)} sources"
         elif category == "BRUTE_FORCE" and alert.source_ips:
             title = f"Brute Force from {alert.source_ips[0]}"
         elif category == "SUSPICIOUS_CONNECTION" and alert.dest_ips:

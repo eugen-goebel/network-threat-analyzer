@@ -6,6 +6,7 @@ import pytest
 
 from agents.log_parser import LogParser
 from agents.rule_engine import RuleEngine
+from agents.threat_classifier import ThreatClassifier
 from models.network import (
     ConnectionFlow,
     LogEntry,
@@ -376,17 +377,122 @@ def test_ssh_brute_force_is_found_in_the_sample_syslog(engine, port_scan_parse_r
     assert any(a.source_ips == ["10.99.88.77"] for a in ssh)
 
 
-def test_http_brute_force_is_found_in_an_apache_log(engine, port_scan_parse_result, tmp_path):
-    # 503 keeps the severity above "info", which the HTTP rule requires.
-    lines = [
-        f'172.16.0.9 - - [15/Mar/2026:10:00:{i:02d} +0100] "POST /api/login HTTP/1.1" 503 10 "-" "x"\n'
-        for i in range(12)
-    ]
+def _apache_line(
+    ip: str, second: int, status: int, path: str = "/api/login", method: str = "POST"
+) -> str:
+    minute, sec = divmod(second, 60)
+    return f'{ip} - - [15/Mar/2026:10:{minute:02d}:{sec:02d} +0100] "{method} {path} HTTP/1.1" {status} 10 "-" "x"\n'
+
+
+def _parse_apache(tmp_path, lines: list[str]):
     path = tmp_path / "access.log"
     path.write_text("".join(lines))
-    log_result = LogParser().parse(str(path))
+    return LogParser().parse(str(path))
 
+
+def _http_alerts(engine, port_scan_parse_result, log_result, rule_name: str):
     alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
-    http = [a for a in alerts if a.rule_name == "http_brute_force"]
+    return [a for a in alerts if a.rule_name == rule_name]
+
+
+def test_http_brute_force_is_found_in_an_apache_log(engine, port_scan_parse_result, tmp_path):
+    # Failed logins (401) from one IP: the per-IP rule fires on the status, not on severity.
+    log_result = _parse_apache(tmp_path, [_apache_line("172.16.0.9", i, 401) for i in range(12)])
+
+    http = _http_alerts(engine, port_scan_parse_result, log_result, "http_brute_force")
     assert [a.source_ips for a in http] == [["172.16.0.9"]]
     assert http[0].evidence["attempts"] == 12
+
+
+def test_http_brute_force_counts_403_but_not_server_errors(
+    engine, port_scan_parse_result, tmp_path
+):
+    forbidden = _parse_apache(tmp_path, [_apache_line("172.16.0.9", i, 403) for i in range(12)])
+    assert _http_alerts(engine, port_scan_parse_result, forbidden, "http_brute_force")
+
+    # 5xx is a server problem, not a failed login (it used to count via severity "medium").
+    errors = _parse_apache(tmp_path, [_apache_line("172.16.0.9", i, 503) for i in range(12)])
+    alerts = engine.analyze(port_scan_parse_result, log_result=errors)
+    assert not [a for a in alerts if a.category == "BRUTE_FORCE"]
+
+
+def test_http_brute_force_ignores_successful_logins_and_other_requests(
+    engine, port_scan_parse_result, tmp_path
+):
+    lines = [_apache_line("172.16.0.9", i, 200) for i in range(6)]
+    lines += [_apache_line("172.16.0.9", i, 302) for i in range(6, 12)]
+    lines += [_apache_line("172.16.0.9", i, 401, method="GET") for i in range(12, 24)]
+    lines += [_apache_line("172.16.0.9", i, 401, path="/api/data") for i in range(24, 36)]
+    log_result = _parse_apache(tmp_path, lines)
+
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    assert not [a for a in alerts if a.category == "BRUTE_FORCE"]
+
+
+def test_distributed_brute_force_is_found_in_the_sample_apache_log(engine, port_scan_parse_result):
+    # 40 failed logins within 5s from 13 IPs (2-7 each): no single IP reaches the per-IP threshold.
+    log_result = LogParser().parse(str(SAMPLE_DIR / "sample_apache.log"))
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+
+    distributed = [a for a in alerts if a.rule_name == "http_distributed_brute_force"]
+    assert len(distributed) == 1
+    alert = distributed[0]
+    assert alert.category == "BRUTE_FORCE"
+    assert alert.severity == "high"
+    assert len(alert.source_ips) == 13
+    assert alert.evidence["attempts"] == 40
+    assert alert.evidence["paths_targeted"] == ["/api/login"]
+    assert not [a for a in alerts if a.rule_name == "http_brute_force"]
+
+
+def test_distributed_brute_force_needs_enough_attempts(engine, port_scan_parse_result, tmp_path):
+    # 5 IPs, 15 failed logins in total: below the 20 attempts needed.
+    lines = [_apache_line(f"172.16.0.{i % 5 + 1}", i, 401) for i in range(15)]
+    log_result = _parse_apache(tmp_path, lines)
+
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    assert not [a for a in alerts if a.category == "BRUTE_FORCE"]
+
+
+def test_distributed_brute_force_needs_enough_sources(engine, port_scan_parse_result, tmp_path):
+    # 2 IPs with 12 attempts each: the per-IP rule reports both, the distributed rule stays quiet.
+    lines = [_apache_line(f"172.16.0.{i % 2 + 1}", i, 401) for i in range(24)]
+    log_result = _parse_apache(tmp_path, lines)
+
+    assert _http_alerts(engine, port_scan_parse_result, log_result, "http_brute_force")
+    assert not _http_alerts(
+        engine, port_scan_parse_result, log_result, "http_distributed_brute_force"
+    )
+
+
+def test_distributed_brute_force_needs_a_short_window(engine, port_scan_parse_result, tmp_path):
+    # 30 failed logins from 10 IPs, but spread over 5 minutes (10s apart).
+    lines = [_apache_line(f"172.16.0.{i % 10 + 1}", i * 10, 401) for i in range(30)]
+    log_result = _parse_apache(tmp_path, lines)
+
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    assert not [a for a in alerts if a.category == "BRUTE_FORCE"]
+
+
+def test_distributed_brute_force_ignores_successful_logins(
+    engine, port_scan_parse_result, tmp_path
+):
+    lines = [
+        _apache_line(f"172.16.0.{i % 10 + 1}", i // 4, 200 if i % 2 else 302) for i in range(40)
+    ]
+    log_result = _parse_apache(tmp_path, lines)
+
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    assert not [a for a in alerts if a.category == "BRUTE_FORCE"]
+
+
+def test_distributed_brute_force_is_classified_as_brute_force(engine, port_scan_parse_result):
+    log_result = LogParser().parse(str(SAMPLE_DIR / "sample_apache.log"))
+    alerts = engine.analyze(port_scan_parse_result, log_result=log_result)
+    report = ThreatClassifier().classify(alerts, [], 0, "", 0.0)
+
+    threats = [t for t in report.threats if t.category == "BRUTE_FORCE"]
+    assert len(threats) == 1
+    assert threats[0].severity_label == "high"
+    assert threats[0].title == "Distributed Brute Force from 13 sources"
+    assert len(threats[0].source_ips) == 13

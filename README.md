@@ -75,7 +75,8 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | SYN Flood | >100 SYN packets from >5 sources in 10s | Critical |
 | UDP/ICMP Flood | Volume threshold exceeded for single target | Critical/High |
 | SSH Brute Force | >5 failed logins from same IP in 60s | High |
-| HTTP Brute Force | >10 POST requests to auth endpoints in 60s | High |
+| HTTP Brute Force | ≥10 failed logins (POST to a login/auth path, status 401/403) from same IP in 60s | High |
+| Distributed HTTP Brute Force | ≥20 failed logins on the same login/auth path from ≥3 IPs in 60s | High |
 | C2 Beaconing | Regular-interval connections (std dev < 5s) | Critical |
 | Data Exfiltration | >10MB outbound from internal to external IP | High |
 | Malicious Ports | Traffic on known backdoor ports (4444, 1337, ...) | High |
