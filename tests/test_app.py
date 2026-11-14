@@ -196,3 +196,113 @@ def test_pcap_plus_apache_upload_with_login_attempts_analyzes_without_an_excepti
     assert not at.exception
     metrics = {m.label: m.value for m in at.metric}
     assert metrics["Packets Analyzed"] == _sample_packet_count()
+
+
+# --- anomaly score chart ------------------------------------------------------
+
+
+def _anomaly_chart_rows(at: AppTest) -> list[dict]:
+    """Rows behind the Anomaly Scores chart, or [] when the page has no such chart."""
+
+    import pyarrow as pa
+
+    for chart in at.get("vega_lite_chart"):
+        proto = chart.proto
+        if '"Decision"' not in proto.spec:
+            continue
+        table = pa.ipc.open_stream(proto.datasets[0].data.data).read_all()
+        return table.to_pylist()
+    return []
+
+
+def _sample_run_windows() -> tuple[int, int]:
+    """Window count and flagged-window count of the sample PCAP + syslog, run directly."""
+    from agents.anomaly_detector import AnomalyDetector
+    from agents.feature_extractor import FeatureExtractor
+    from agents.log_parser import LogParser
+    from agents.pcap_parser import PcapParser
+
+    data = Path(APP).parent / "data"
+    parsed = PcapParser().parse(str(data / "sample_capture.pcap"))
+    log = LogParser.for_capture(parsed).parse(str(data / "sample_syslog.log"))
+    matrix = FeatureExtractor().extract(parsed, log)
+    result = AnomalyDetector(sensitivity=0.05).analyze(matrix)
+    return len(result.windows), sum(w.flagged for w in result.windows)
+
+
+def test_demo_anomaly_chart_marks_the_flagged_window(app: AppTest) -> None:
+    from agents.mock_data import get_mock_anomaly_windows, get_mock_timeline
+
+    rows = _anomaly_chart_rows(app)
+    assert len(rows) == len(get_mock_timeline()) == len(get_mock_anomaly_windows())
+    flagged = [r["Time"] for r in rows if r["Decision"] == "Flagged by ensemble"]
+    assert flagged == ["10:03"]
+
+
+def test_pcap_plus_syslog_anomaly_chart_has_every_window_and_no_altair_warning() -> None:
+    # Regression: the chart only held the windows the ensemble flagged. The sample
+    # PCAP + syslog flags none, so it was empty and altair warned "I don't know
+    # how to infer vegalite type from 'empty'".
+    import warnings
+
+    log = (Path(APP).parent / "data" / "sample_syslog.log").read_bytes()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        at = _upload_pcap_and_log("sample_syslog.log", log)
+
+    assert not at.exception
+    assert not [w for w in caught if "vegalite type" in str(w.message)]
+    assert not [i for i in at.info if "No anomaly scores" in i.value]
+    rows = _anomaly_chart_rows(at)
+    assert rows, "the anomaly chart has no data"
+    windows, flagged = _sample_run_windows()
+    assert len(rows) == windows
+    assert sum(r["Decision"] == "Flagged by ensemble" for r in rows) == flagged
+    assert all(0.0 <= r["Score"] <= 1.0 for r in rows)
+
+
+def test_pcap_alone_marks_the_windows_detect_reports() -> None:
+    # The chart marking must be the ensemble's own decision, so it has to equal
+    # the alerts of detect().
+    from agents.anomaly_detector import AnomalyDetector
+    from agents.feature_extractor import FeatureExtractor
+    from agents.pcap_parser import PcapParser
+
+    sample = Path(APP).parent / "data" / "sample_capture.pcap"
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(
+        ("sample_capture.pcap", sample.read_bytes(), "application/octet-stream")
+    )
+    at.run()
+
+    parsed = PcapParser().parse(str(sample))
+    matrix = FeatureExtractor().extract(parsed, None)
+    alerts = AnomalyDetector(sensitivity=0.05).detect(matrix)
+
+    assert not at.exception
+    rows = _anomaly_chart_rows(at)
+    marked = {r["Time"]: r["Score"] for r in rows if r["Decision"] == "Flagged by ensemble"}
+    assert alerts, "the sample capture alone should produce an anomaly alert"
+    assert marked == {a.time_window_start: a.anomaly_score for a in alerts}
+
+
+def test_capture_too_short_for_scoring_shows_a_hint_instead_of_a_chart(tmp_path) -> None:
+    from scapy.all import IP, TCP, wrpcap
+
+    packets = []
+    for i in range(3):  # three one-minute windows, fewer than the models need
+        pkt = IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=1234, dport=80, flags="S")
+        pkt.time = 1_773_568_800 + i * 60
+        packets.append(pkt)
+    short = tmp_path / "short.pcap"
+    wrpcap(str(short), packets)
+
+    at = AppTest.from_file(APP, default_timeout=90).run()
+    at.file_uploader[0].set_value(("short.pcap", short.read_bytes(), "application/octet-stream"))
+    at.run()
+
+    assert not at.exception
+    hints = [i.value for i in at.info if "No anomaly scores" in i.value]
+    assert len(hints) == 1
+    assert "at least 5" in hints[0]
+    assert _anomaly_chart_rows(at) == []

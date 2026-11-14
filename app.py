@@ -3,15 +3,17 @@
 import os
 import tempfile
 import time
+from datetime import datetime
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
-from agents.anomaly_detector import AnomalyDetector
+from agents.anomaly_detector import MIN_WINDOWS, AnomalyDetector
 from agents.feature_extractor import FeatureExtractor
 from agents.log_parser import LogParser
 from agents.mock_data import (
-    get_mock_anomaly_scores,
+    get_mock_anomaly_windows,
     get_mock_protocol_dist,
     get_mock_report,
     get_mock_timeline,
@@ -148,7 +150,14 @@ def _render_ml_evidence(evidence: dict) -> None:
 
     left, right = st.columns(2)
     if score is not None:
-        left.metric("Anomaly score", f"{score:.2f}")
+        left.metric(
+            "Anomaly score",
+            f"{score:.2f}",
+            help=(
+                "Isolation Forest score scaled to 0-1 within this capture (1 = most "
+                "unusual window). The decision itself is the vote on the right."
+            ),
+        )
     right.metric("Models in agreement", f"{flagged} of {len(votes)}")
 
     st.markdown("**Ensemble votes:**")
@@ -163,7 +172,69 @@ def _render_ml_evidence(evidence: dict) -> None:
             st.markdown(f"- {feat}")
 
 
-def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
+ANOMALY_FLAGGED = "Flagged by ensemble"
+ANOMALY_NORMAL = "Not flagged"
+
+
+def _short_time(ts: str) -> str:
+    """'2026-03-15T09:03:01.675+00:00' -> '09:03:01' for axis labels; other text stays."""
+    try:
+        return datetime.fromisoformat(ts).strftime("%H:%M:%S")
+    except ValueError:
+        return ts
+
+
+def _anomaly_frame(windows) -> pd.DataFrame:
+    """One row per time window: score and whether the ensemble flagged it."""
+    df = pd.DataFrame(windows, columns=["Time", "Score", "Flagged"])
+    df["Decision"] = df["Flagged"].map({True: ANOMALY_FLAGGED, False: ANOMALY_NORMAL})
+    # Full ISO timestamps on the axis are unreadable at 20 windows; keep them in the tooltip.
+    df["Window"] = df["Time"].map(_short_time)
+    return df[["Time", "Window", "Score", "Decision"]]
+
+
+def _anomaly_chart(df: pd.DataFrame) -> alt.Chart:
+    """Score of every window as a line; flagged windows are red points."""
+    x = alt.X(
+        "Window:N",
+        sort=None,
+        title=None,
+        axis=alt.Axis(grid=False, labelAngle=-45, labelOverlap=True),
+    )
+    y = alt.Y("Score:Q", title=None, scale=alt.Scale(domain=[0, 1]))
+    base = alt.Chart(df).encode(x=x, y=y)
+    line = base.mark_line(color="#9aa5b1")
+    points = base.mark_point(filled=True, size=65, opacity=1).encode(
+        color=alt.Color(
+            "Decision:N",
+            scale=alt.Scale(
+                domain=[ANOMALY_NORMAL, ANOMALY_FLAGGED],
+                range=["#1565C0", "#C62828"],
+            ),
+            legend=alt.Legend(title=None, orient="top"),
+        ),
+        tooltip=["Time:N", alt.Tooltip("Score:Q", format=".2f"), "Decision:N"],
+    )
+    return line + points
+
+
+def _render_anomaly_scores(anomaly_windows, window_count: int) -> None:
+    if not anomaly_windows:
+        st.info(
+            f"No anomaly scores: the models need at least {MIN_WINDOWS} time windows "
+            f"and this capture has {window_count}. Upload a longer capture."
+        )
+        return
+    st.altair_chart(_anomaly_chart(_anomaly_frame(anomaly_windows)), width="stretch")
+    st.caption(
+        "Isolation Forest score of every time window, scaled within this capture "
+        "(1 = most unusual window, so the top window always reads 1.0). A window "
+        "is flagged when at least two of the three models vote outlier, so a "
+        "flagged window does not always have the highest score."
+    )
+
+
+def display_results(threat_report, protocol_dist, timeline, anomaly_windows):
     # --- Header metrics ---
     # The severity cards have to add up to "Total Threats". Showing only
     # Critical and High left a reader with 2 + 3 against a total of 6 and no
@@ -236,8 +307,7 @@ def display_results(threat_report, protocol_dist, timeline, anomaly_scores):
         st.line_chart(df_timeline)
 
         st.subheader("Anomaly Scores")
-        df_anomaly = pd.DataFrame(anomaly_scores, columns=["Time", "Score"]).set_index("Time")
-        st.line_chart(df_anomaly)
+        _render_anomaly_scores(anomaly_windows, len(timeline))
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +346,8 @@ def run_analysis(file_paths):
         rule_alerts = RuleEngine().analyze(parse_result, log_result)
 
     with st.spinner("Running anomaly detection..."):
-        anomaly_alerts = AnomalyDetector(sensitivity=sensitivity).detect(feature_matrix)
+        anomaly_result = AnomalyDetector(sensitivity=sensitivity).analyze(feature_matrix)
+        anomaly_alerts = anomaly_result.alerts
 
     with st.spinner("Classifying threats..."):
         duration = time.time() - start_time
@@ -296,7 +367,10 @@ def run_analysis(file_paths):
         for i, ws in enumerate(feature_matrix.window_starts)
     ]
 
-    anomaly_data = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
+    # Every window, not only the flagged ones, so the chart shows the rest too.
+    anomaly_data = [
+        (w.time_window_start, w.anomaly_score, w.flagged) for w in anomaly_result.windows
+    ]
 
     return threat_report, protocol_dist, timeline_data, anomaly_data
 
@@ -355,7 +429,7 @@ else:
         get_mock_report(),
         get_mock_protocol_dist(),
         get_mock_timeline(),
-        get_mock_anomaly_scores(),
+        get_mock_anomaly_windows(),
     )
 
 
