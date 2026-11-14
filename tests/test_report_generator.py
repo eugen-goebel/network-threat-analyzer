@@ -8,6 +8,7 @@ from docx import Document
 from models.reports import AnalysisSummary, VisualizationResult
 from models.threats import ClassifiedThreat, ThreatReport
 from utils.report_generator import ReportGenerator
+from utils.visualization import ChartGenerator
 
 
 @pytest.fixture
@@ -155,3 +156,39 @@ def test_report_contains_threats(report_generator, analysis_summary, viz_result)
     text = "\n".join([p.text for p in doc.paragraphs])
     assert "Vertical Port Scan" in text
     assert "Suspicious Connection" in text
+
+
+@pytest.fixture
+def charted_viz(tmp_path, analysis_summary):
+    """Real charts: 8 windows, only window 5 flagged."""
+    timeline = [(f"2026-03-15T10:{i:02d}:00", float(i)) for i in range(8)]
+    windows = [(ts, 0.5, i == 5) for i, (ts, _) in enumerate(timeline)]
+    return ChartGenerator(str(tmp_path / "charts")).generate_all(
+        analysis_summary.threat_summary, {"TCP": 8, "UDP": 2}, timeline, windows
+    )
+
+
+def _description(viz, filename):
+    return next(c.description for c in viz.charts if c.filename == filename)
+
+
+def test_timeline_charts_are_followed_by_their_captions(
+    report_generator, analysis_summary, charted_viz
+):
+    doc = Document(report_generator.generate(analysis_summary, charted_viz))
+    paras = doc.paragraphs
+    pictures = [i for i, p in enumerate(paras) if p._p.xpath(".//w:drawing")]
+    timeline_pic, anomaly_pic = pictures[-2:]
+    assert paras[timeline_pic + 1].text == _description(charted_viz, "traffic_timeline.png")
+    assert paras[anomaly_pic + 1].text == _description(charted_viz, "anomaly_scores.png")
+    assert "Isolation Forest" in paras[anomaly_pic + 1].text
+
+
+def test_report_methodology_names_the_vote_and_no_score_threshold(
+    report_generator, analysis_summary, viz_result
+):
+    doc = Document(report_generator.generate(analysis_summary, viz_result))
+    text = "\n".join(p.text for p in doc.paragraphs)
+    assert "detection threshold" not in text
+    assert "threshold of 0.5" not in text
+    assert "at least two of the three" in text

@@ -127,6 +127,12 @@ class PDFReportGenerator:
         pdf.multi_cell(0, 6, _sanitize(text))
         pdf.ln(3)
 
+    def _add_caption(self, pdf: _ReportPDF, text: str):
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_text_color(90, 90, 90)
+        pdf.multi_cell(0, 4, _sanitize(text), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+
     def _add_bullet_list(self, pdf: _ReportPDF, items: list[str]):
         pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(33, 33, 33)
@@ -281,17 +287,19 @@ class PDFReportGenerator:
     def _add_timeline_analysis(self, pdf: _ReportPDF, viz: VisualizationResult):
         self._add_heading(pdf, "Timeline Analysis")
 
-        chart_path = os.path.join(viz.chart_dir, "traffic_timeline.png")
-        if os.path.exists(chart_path):
+        drawn = False
+        for filename in ("traffic_timeline.png", "anomaly_scores.png"):
+            chart_path = os.path.join(viz.chart_dir, filename)
+            if not os.path.exists(chart_path):
+                continue
             pdf.image(chart_path, x=15, w=180)
-            pdf.ln(5)
+            pdf.ln(2)
+            caption = viz.description_of(filename)
+            if caption:
+                self._add_caption(pdf, caption)
+            drawn = True
 
-        anomaly_path = os.path.join(viz.chart_dir, "anomaly_scores.png")
-        if os.path.exists(anomaly_path):
-            pdf.image(anomaly_path, x=15, w=180)
-            pdf.ln(5)
-
-        if not os.path.exists(chart_path) and not os.path.exists(anomaly_path):
+        if not drawn:
             self._add_body_text(pdf, "No timeline charts available.")
 
     def _add_recommendations(self, pdf: _ReportPDF, summary: AnalysisSummary):
@@ -356,9 +364,11 @@ class PDFReportGenerator:
             "known attack signatures, including port scan heuristics, volumetric "
             "thresholds for DDoS identification, and brute-force attempt correlation.",
             "The ML ensemble combined Isolation Forest, Local Outlier Factor, and "
-            "One-Class SVM models trained on baseline traffic profiles. Anomaly "
-            "scores were computed as weighted consensus across model votes, with "
-            "a detection threshold of 0.5.",
+            "One-Class SVM models fitted on the analyzed capture itself. A time "
+            "window was flagged when at least two of the three models voted it an "
+            "outlier. The reported anomaly score is the Isolation Forest score "
+            "scaled to 0-1 within the capture; it is shown for context and is "
+            "not the flagging criterion.",
             "Threats flagged by both detection layers received elevated confidence "
             "scoring. Final severity classification incorporated threat category, "
             "affected scope, and temporal persistence.",

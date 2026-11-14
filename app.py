@@ -3,7 +3,6 @@
 import os
 import tempfile
 import time
-from datetime import datetime
 
 import altair as alt
 import pandas as pd
@@ -21,6 +20,7 @@ from agents.mock_data import (
 from agents.pcap_parser import PcapParser
 from agents.rule_engine import RuleEngine
 from agents.threat_classifier import ThreatClassifier
+from utils.timefmt import short_time
 
 st.set_page_config(page_title="Network Threat Analyzer", page_icon="🛡", layout="wide")
 
@@ -176,20 +176,12 @@ ANOMALY_FLAGGED = "Flagged by ensemble"
 ANOMALY_NORMAL = "Not flagged"
 
 
-def _short_time(ts: str) -> str:
-    """'2026-03-15T09:03:01.675+00:00' -> '09:03:01' for axis labels; other text stays."""
-    try:
-        return datetime.fromisoformat(ts).strftime("%H:%M:%S")
-    except ValueError:
-        return ts
-
-
 def _anomaly_frame(windows) -> pd.DataFrame:
     """One row per time window: score and whether the ensemble flagged it."""
     df = pd.DataFrame(windows, columns=["Time", "Score", "Flagged"])
     df["Decision"] = df["Flagged"].map({True: ANOMALY_FLAGGED, False: ANOMALY_NORMAL})
     # Full ISO timestamps on the axis are unreadable at 20 windows; keep them in the tooltip.
-    df["Window"] = df["Time"].map(_short_time)
+    df["Window"] = df["Time"].map(short_time)
     return df[["Time", "Window", "Score", "Decision"]]
 
 
