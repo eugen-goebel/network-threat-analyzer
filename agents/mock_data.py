@@ -197,3 +197,13 @@ def get_mock_anomaly_scores() -> list[tuple[str, float]]:
         ("10:03", 0.82),
         ("10:04", 0.28),
     ]
+
+
+def get_mock_anomaly_windows() -> list[tuple[str, float, bool]]:
+    """Sample score per window plus the ensemble decision, for the dashboard demo.
+
+    Same values as get_mock_anomaly_scores. Only 10:03 is flagged, matching the
+    anomalous-traffic threat in get_mock_report (all three models vote outlier).
+    """
+    flagged = {"10:03"}
+    return [(ts, score, ts in flagged) for ts, score in get_mock_anomaly_scores()]

@@ -121,3 +121,58 @@ def test_detect_too_few_windows(detector, few_window_features):
 def test_detect_all_normal(detector, uniform_features):
     alerts = detector.detect(uniform_features)
     assert len(alerts) <= 2
+
+
+# --- scores of every window --------------------------------------------------
+
+
+def test_analyze_scores_every_window(detector, normal_features):
+    result = detector.analyze(normal_features)
+    assert len(result.windows) == len(normal_features.window_starts) == 20
+    assert [w.time_window_start for w in result.windows] == normal_features.window_starts
+    assert all(0.0 <= w.anomaly_score <= 1.0 for w in result.windows)
+
+
+def test_analyze_flags_exactly_the_windows_detect_reports(detector, normal_features):
+    alerts = detector.detect(normal_features)
+    result = AnomalyDetector(sensitivity=0.1).analyze(normal_features)
+
+    assert alerts, "the fixture must produce at least one alert"
+    assert result.alerts == alerts
+    flagged = [w for w in result.windows if w.flagged]
+    assert [w.time_window_start for w in flagged] == [a.time_window_start for a in alerts]
+    assert [w.anomaly_score for w in flagged] == [a.anomaly_score for a in alerts]
+
+
+def test_flag_is_the_ensemble_vote_not_a_score_cutoff(detector, normal_features):
+    result = detector.analyze(normal_features)
+    by_start = {a.time_window_start: a for a in result.alerts}
+    for w in result.windows:
+        assert w.flagged == (w.models_flagged >= 2)
+        if w.flagged:
+            votes = by_start[w.time_window_start].model_votes
+            assert w.models_flagged == sum(1 for v in votes.values() if v == -1)
+
+
+def test_analyze_runs_the_ensemble_once(monkeypatch, normal_features):
+    import agents.anomaly_detector as module
+
+    fits = []
+
+    class CountingForest(module.IsolationForest):
+        def fit_predict(self, *args, **kwargs):
+            fits.append(1)
+            return super().fit_predict(*args, **kwargs)
+
+    monkeypatch.setattr(module, "IsolationForest", CountingForest)
+    AnomalyDetector(sensitivity=0.1).analyze(normal_features)
+    assert len(fits) == 1
+
+
+def test_analyze_has_no_scores_for_too_few_or_no_windows(
+    detector, empty_features, few_window_features
+):
+    for features in (empty_features, few_window_features):
+        result = detector.analyze(features)
+        assert result.windows == []
+        assert result.alerts == []
