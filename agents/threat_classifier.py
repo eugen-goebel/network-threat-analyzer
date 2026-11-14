@@ -28,6 +28,16 @@ _RULE_RECOMMENDATIONS = {
         "Inspect logs of the source host for unauthorised processes",
         "Add the destination domain(s) to a DNS sinkhole or blocklist",
     ],
+    "WEB_ATTACK": [
+        "Block the source IP or add a WAF rule for path traversal patterns",
+        "Confirm the web root and file permissions deny access outside the document root",
+        "Check the access log for 2xx answers to these requests and treat them as a possible data leak",
+    ],
+    "WEB_RECON": [
+        "Rate-limit or block the source IP at the WAF or reverse proxy",
+        "Remove or restrict exposed admin panels, backups and dotfiles such as .env and .git",
+        "Watch the source for follow-up exploitation attempts",
+    ],
 }
 
 _BASE_SEVERITY_SCORES = {
@@ -95,6 +105,9 @@ class ThreatClassifier:
             title = f"Suspicious Connection to {alert.dest_ips[0]}"
         elif category == "DNS_TUNNELING" and alert.source_ips:
             title = f"DNS Tunneling from {alert.source_ips[0]}"
+        elif category in ("WEB_ATTACK", "WEB_RECON") and alert.source_ips:
+            # rule_name is "directory_traversal" or "recon_scanning"
+            title = f"{alert.rule_name.replace('_', ' ').title()} from {alert.source_ips[0]}"
         else:
             title = f"{category.replace('_', ' ').title()} detected"
 

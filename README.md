@@ -79,6 +79,8 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | SSH Brute Force | ≥5 failed logins from same IP in 60s | High |
 | HTTP Brute Force | ≥10 failed logins (POST to a login path, status 401/403) from same IP in 60s | High |
 | Distributed HTTP Brute Force | ≥20 failed logins on the same login path from ≥3 IPs in 60s | High |
+| Directory Traversal | Any Apache request whose URL-decoded path or query has a `..` segment or names a system file (`/etc/passwd`, `win.ini`), one request is enough, per source IP | High |
+| Recon Scanning | ≥5 different known probe paths (`/.env`, `/.git`, `/wp-admin`, `/phpmyadmin`, `*.sql`, ...) answered with 403/404 from the same IP in 60s | Medium |
 | C2 Beaconing | >5 packets per source/destination pair, average interval ≥10s, std dev < 5s | Critical |
 | Data Exfiltration | >10,000,000 bytes in one flow from internal to external IP | High |
 | Malicious Ports | Traffic from or to known backdoor/IRC ports (4444, 5555, 8888, 1337, 31337, 6667, 6697) | High |
@@ -86,6 +88,8 @@ Rule Engine   Anomaly Detector    Phase 4-5: Dual detection
 | DNS Tunneling (Oversized) | ≥20 DNS packets with payload >100 bytes per source | High |
 
 A login path has one of the words `login`, `signin`, `logon`, `auth`, `authenticate`, `oauth` or `token` as a whole word. The path is split at `/`, `-`, `_`, `.` and camelCase, and two neighbouring words also count joined: `/wp-login.php`, `/api/userLogin` and `/sign-in` match, `/author` does not.
+
+The two web rules read Apache log entries only. Paths are decoded repeatedly (`%2e%2e%2f`, `..%252f`, overlong UTF-8), lowercased and compared as whole segments, never as substrings: `/admin` is a probe, `/admin-guide` and `/catalog` are not. Directory traversal is reported for any status (2xx answers are counted in the evidence), and a traversal request does not also count as a probe. A scan slower than 5 paths per minute stays below the recon threshold. The thresholds are heuristics, not calibrated on real traffic.
 
 ### ML Anomaly Detection
 
@@ -167,8 +171,8 @@ The included sample data contains intentional attack patterns:
 | SYN Flood | 172.16.0.x (15 IPs) | 150 SYN packets in 4 seconds |
 | C2 Beaconing | 192.168.1.50 | 60-second interval to port 8888 |
 | SSH Brute Force | 10.99.88.77 | 15 failed attempts + 1 success |
-| Directory Traversal | 10.99.88.77 | ../../etc/passwd probes |
-| Recon Scanning | 203.0.113.50 | /wp-admin, /.env, /.git probes |
+| Directory Traversal | 10.99.88.77 | 15 `../` requests for `/etc/passwd`, `/etc/shadow` and other system files, plain and encoded, all answered 403 |
+| Recon Scanning | 203.0.113.50 | 31 probes (`/wp-admin`, `/.env`, `/.git/config`, `*.sql`, ...), all 404; 22 of them are on the rule's list |
 
 All three files share one timeline that starts at 2026-03-15 09:00 UTC (PCAP in epoch time, syslog in UTC without a zone, Apache as `10:00 +0100`), independent of the time zone of the machine that generates them.
 
@@ -202,6 +206,7 @@ network-threat-analyzer/
 │   ├── port_scan.py           Port scan signatures
 │   ├── ddos.py                DDoS pattern rules
 │   ├── brute_force.py         Brute force detection
+│   ├── web_attacks.py         Directory traversal, recon scanning
 │   └── suspicious_connections.py  C2, exfiltration, malicious ports
 ├── utils/
 │   ├── visualization.py       Chart generation

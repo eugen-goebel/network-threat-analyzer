@@ -31,6 +31,8 @@ class ClassifiedThreat(BaseModel):
         "BRUTE_FORCE",
         "SUSPICIOUS_CONNECTION",
         "DNS_TUNNELING",
+        "WEB_ATTACK",
+        "WEB_RECON",
         "ANOMALOUS_TRAFFIC",
     ]
     severity_score: int = Field(ge=0, le=100)
