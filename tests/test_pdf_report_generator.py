@@ -6,7 +6,8 @@ import pytest
 
 from models.reports import AnalysisSummary, VisualizationResult
 from models.threats import ClassifiedThreat, ThreatReport
-from utils.pdf_report_generator import PDFReportGenerator, _sanitize
+from utils.pdf_report_generator import PDFReportGenerator, _ReportPDF, _sanitize
+from utils.visualization import ChartGenerator
 
 
 @pytest.fixture
@@ -104,6 +105,36 @@ def pdf_generator(tmp_path):
     return PDFReportGenerator(output_dir=output_dir)
 
 
+@pytest.fixture
+def charted_viz(tmp_path, analysis_summary):
+    """Real charts: 8 windows, only window 5 flagged."""
+    timeline = [(f"2026-03-15T10:{i:02d}:00", float(i)) for i in range(8)]
+    windows = [(ts, 0.5, i == 5) for i, (ts, _) in enumerate(timeline)]
+    return ChartGenerator(str(tmp_path / "charts")).generate_all(
+        analysis_summary.threat_summary, {"TCP": 8, "UDP": 2}, timeline, windows
+    )
+
+
+@pytest.fixture
+def pdf_calls(monkeypatch):
+    """Record the text and images the PDF generator writes."""
+    calls = {"text": [], "images": []}
+    real_multi_cell = _ReportPDF.multi_cell
+    real_image = _ReportPDF.image
+
+    def multi_cell(self, w, h=None, text="", *args, **kwargs):
+        calls["text"].append(text)
+        return real_multi_cell(self, w, h, text, *args, **kwargs)
+
+    def image(self, name, *args, **kwargs):
+        calls["images"].append(os.path.basename(str(name)))
+        return real_image(self, name, *args, **kwargs)
+
+    monkeypatch.setattr(_ReportPDF, "multi_cell", multi_cell)
+    monkeypatch.setattr(_ReportPDF, "image", image)
+    return calls
+
+
 class TestPDFGeneration:
     def test_generate_creates_pdf(self, pdf_generator, analysis_summary, viz_result):
         filepath = pdf_generator.generate(analysis_summary, viz_result)
@@ -190,3 +221,23 @@ class TestSanitize:
 
     def test_replaces_umlaut(self):
         assert _sanitize("M\u00fcller") == "Mueller"
+
+
+class TestPDFAnomalyCharts:
+    def test_timeline_charts_are_followed_by_their_captions(
+        self, pdf_generator, analysis_summary, charted_viz, pdf_calls
+    ):
+        pdf_generator.generate(analysis_summary, charted_viz)
+        assert pdf_calls["images"][-2:] == ["traffic_timeline.png", "anomaly_scores.png"]
+        for chart in charted_viz.charts:
+            if chart.filename in ("traffic_timeline.png", "anomaly_scores.png"):
+                assert _sanitize(chart.description) in pdf_calls["text"]
+
+    def test_methodology_names_the_vote_and_no_score_threshold(
+        self, pdf_generator, analysis_summary, viz_result, pdf_calls
+    ):
+        pdf_generator.generate(analysis_summary, viz_result)
+        text = " ".join(pdf_calls["text"])
+        assert "detection threshold" not in text
+        assert "threshold of 0.5" not in text
+        assert "at least two of the three" in text

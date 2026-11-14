@@ -1,5 +1,6 @@
 """Chart generation for threat analysis reports and dashboard."""
 
+import math
 import os
 
 import matplotlib
@@ -7,9 +8,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.colors
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from models.reports import ChartConfig, VisualizationResult
 from models.threats import ThreatReport
+from utils.timefmt import short_time
 
 COLOR_CRITICAL = "#C62828"
 COLOR_HIGH = "#E65100"
@@ -17,6 +20,44 @@ COLOR_MEDIUM = "#F9A825"
 COLOR_LOW = "#0D7377"
 COLOR_INFO = "#1565C0"
 COLOR_BG = "#FAFAFA"
+COLOR_NEUTRAL = "#9aa5b1"
+
+ANOMALY_FLAGGED = "Flagged by ensemble"
+ANOMALY_NORMAL = "Not flagged"
+
+# Same wording as the dashboard caption in app.py. The flag is a vote, not a
+# cut-off on the score, so no threshold is drawn or mentioned.
+ANOMALY_DESCRIPTION = (
+    "Isolation Forest score of every time window, scaled within this capture "
+    "(1 = most unusual window, so the top window always reads 1.0). A window "
+    "is flagged (red) when at least two of the three models vote outlier, so a "
+    "flagged window does not always have the highest score."
+)
+TIMELINE_DESCRIPTION = (
+    "Packets per second over time. Shaded windows were flagged by the anomaly "
+    "ensemble (at least two of the three models voted outlier); without shading "
+    "no window was flagged."
+)
+
+# One (time window start, score, flagged by the ensemble) entry per time window.
+AnomalyWindows = list[tuple[str, float, bool]]
+
+
+def _time_ticks(labels: list[str]) -> tuple[list[int], list[str]]:
+    """Tick positions and clock-time labels, thinned to about 20 ticks."""
+    step = max(1, math.ceil(len(labels) / 20))
+    positions = list(range(0, len(labels), step))
+    return positions, [short_time(labels[i]) for i in positions]
+
+
+def _no_scores_message(window_count: int) -> str:
+    # Imported here: agents/__init__ imports the orchestrator, which imports this module.
+    from agents.anomaly_detector import MIN_WINDOWS
+
+    return (
+        f"No anomaly scores: the models need at least {MIN_WINDOWS} time windows "
+        f"and this capture has {window_count}."
+    )
 
 
 class ChartGenerator:
@@ -29,17 +70,21 @@ class ChartGenerator:
         threat_report: ThreatReport,
         protocol_dist: dict[str, int],
         traffic_timeline: list[tuple[str, float]],
-        anomaly_scores: list[tuple[str, float]],
+        anomaly_windows: AnomalyWindows,
         port_counts: dict[int, int] = None,
     ) -> VisualizationResult:
+        """Write all report charts.
+
+        anomaly_windows holds every time window with its score and the ensemble
+        decision; it is empty when the capture is too short to score.
+        """
         charts = []
 
         charts.append(self._protocol_pie(protocol_dist))
         charts.append(self._severity_bar(threat_report))
 
-        anomaly_times = [ts for ts, score in anomaly_scores if score > 0.5]
-        charts.append(self._traffic_timeline(traffic_timeline, anomaly_times))
-        charts.append(self._anomaly_scatter(anomaly_scores))
+        charts.append(self._traffic_timeline(traffic_timeline, anomaly_windows))
+        charts.append(self._anomaly_scatter(anomaly_windows, len(traffic_timeline)))
 
         if port_counts is not None:
             charts.append(self._top_ports_bar(port_counts))
@@ -96,13 +141,15 @@ class ChartGenerator:
             description="Breakdown of captured packets by network protocol.",
         )
 
-    def _traffic_timeline(
+    def _timeline_figure(
         self,
         timeline: list[tuple[str, float]],
-        anomaly_times: list[str],
-    ) -> ChartConfig:
+        anomaly_windows: AnomalyWindows,
+    ) -> Figure:
         labels = [t[0] for t in timeline]
         values = [t[1] for t in timeline]
+        # Shade what the ensemble flagged, never a window picked by its score.
+        flagged = {ts for ts, _, is_flagged in anomaly_windows if is_flagged}
 
         fig = plt.figure(figsize=(12, 5), facecolor=COLOR_BG)
         ax = fig.add_subplot(111)
@@ -111,28 +158,46 @@ class ChartGenerator:
         ax.plot(range(len(values)), values, color=COLOR_INFO, linewidth=1.5)
         ax.fill_between(range(len(values)), values, alpha=0.15, color=COLOR_INFO)
 
+        shaded = False
         for i, label in enumerate(labels):
-            if label in anomaly_times:
-                ax.axvspan(i - 0.5, i + 0.5, color=COLOR_CRITICAL, alpha=0.15)
+            if label in flagged:
+                ax.axvspan(
+                    i - 0.5,
+                    i + 0.5,
+                    color=COLOR_CRITICAL,
+                    alpha=0.15,
+                    label=None if shaded else ANOMALY_FLAGGED,
+                )
+                shaded = True
+        if shaded:
+            ax.legend(loc="upper right")
 
         ax.set_xlabel("Time Window", fontsize=10)
         ax.set_ylabel("Packets/sec", fontsize=10)
         ax.set_title("Traffic Timeline", fontsize=14, fontweight="bold")
 
-        tick_step = max(1, len(labels) // 20)
-        ax.set_xticks(range(0, len(labels), tick_step))
-        ax.set_xticklabels(labels[::tick_step], rotation=45, ha="right", fontsize=7)
+        positions, tick_labels = _time_ticks(labels)
+        ax.set_xticks(positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=7)
 
         fig.tight_layout()
+        return fig
+
+    def _traffic_timeline(
+        self,
+        timeline: list[tuple[str, float]],
+        anomaly_windows: AnomalyWindows,
+    ) -> ChartConfig:
+        fig = self._timeline_figure(timeline, anomaly_windows)
         path = os.path.join(self.output_dir, "traffic_timeline.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
+        fig.savefig(path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
         return ChartConfig(
             filename="traffic_timeline.png",
             chart_type="line",
             title="Traffic Timeline",
-            description="Packets per second over time with anomalous windows highlighted.",
+            description=TIMELINE_DESCRIPTION,
         )
 
     def _severity_bar(self, threat_report: ThreatReport) -> ChartConfig:
@@ -203,41 +268,67 @@ class ChartGenerator:
             description="Most frequently targeted destination ports by connection count.",
         )
 
-    def _anomaly_scatter(self, anomaly_scores: list[tuple[str, float]]) -> ChartConfig:
-        indices = list(range(len(anomaly_scores)))
-        scores = [s[1] for s in anomaly_scores]
-
-        point_colors = []
-        for score in scores:
-            if score > 0.7:
-                point_colors.append(COLOR_CRITICAL)
-            elif score > 0.4:
-                point_colors.append(COLOR_HIGH)
-            else:
-                point_colors.append(COLOR_LOW)
-
+    def _anomaly_figure(self, windows: AnomalyWindows, window_count: int) -> Figure:
         fig = plt.figure(figsize=(10, 5), facecolor=COLOR_BG)
         ax = fig.add_subplot(111)
         ax.set_facecolor(COLOR_BG)
+        # pad leaves room for the legend between the title and the plot
+        ax.set_title("Anomaly Scores per Time Window", fontsize=14, fontweight="bold", pad=26)
 
-        ax.scatter(
-            indices, scores, c=point_colors, s=30, alpha=0.8, edgecolors="white", linewidths=0.5
-        )
-        ax.axhline(y=0.5, color=COLOR_CRITICAL, linestyle="--", linewidth=1, alpha=0.6)
+        if not windows:
+            ax.text(
+                0.5,
+                0.5,
+                _no_scores_message(window_count),
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="#757575",
+            )
+            ax.axis("off")
+            fig.tight_layout()
+            return fig
 
-        ax.set_xlabel("Time Window Index", fontsize=10)
-        ax.set_ylabel("Anomaly Score", fontsize=10)
+        scores = [w[1] for w in windows]
+        # The curve shows the score of every window; the flag is the ensemble vote.
+        ax.plot(range(len(scores)), scores, color=COLOR_NEUTRAL, linewidth=1.2, zorder=1)
+        for flagged, color, label in (
+            (False, COLOR_INFO, ANOMALY_NORMAL),
+            (True, COLOR_CRITICAL, ANOMALY_FLAGGED),
+        ):
+            idx = [i for i, w in enumerate(windows) if w[2] == flagged]
+            ax.scatter(
+                idx,
+                [scores[i] for i in idx],
+                color=color,
+                label=label,
+                s=45,
+                zorder=2,
+                edgecolors="white",
+                linewidths=0.5,
+            )
+
+        ax.set_xlabel("Time window start", fontsize=10)
+        ax.set_ylabel("Anomaly score (scaled Isolation Forest)", fontsize=10)
         ax.set_ylim(-0.05, 1.05)
-        ax.set_title("Anomaly Score Distribution", fontsize=14, fontweight="bold")
+        positions, tick_labels = _time_ticks([w[0] for w in windows])
+        ax.set_xticks(positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=7)
+        ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=2, frameon=False)
 
         fig.tight_layout()
+        return fig
+
+    def _anomaly_scatter(self, windows: AnomalyWindows, window_count: int) -> ChartConfig:
+        fig = self._anomaly_figure(windows, window_count)
         path = os.path.join(self.output_dir, "anomaly_scores.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
+        fig.savefig(path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
+        description = ANOMALY_DESCRIPTION if windows else _no_scores_message(window_count)
         return ChartConfig(
             filename="anomaly_scores.png",
             chart_type="scatter",
-            title="Anomaly Score Distribution",
-            description="Per-window anomaly scores with threshold line at 0.5.",
+            title="Anomaly Scores per Time Window",
+            description=description,
         )

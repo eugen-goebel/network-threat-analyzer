@@ -232,17 +232,19 @@ class ReportGenerator:
     def _add_timeline_analysis(self, doc: Document, viz: VisualizationResult):
         doc.add_heading("Timeline Analysis", level=1)
 
-        chart_path = os.path.join(viz.chart_dir, "traffic_timeline.png")
-        if os.path.exists(chart_path):
+        for filename in ("traffic_timeline.png", "anomaly_scores.png"):
+            chart_path = os.path.join(viz.chart_dir, filename)
+            if not os.path.exists(chart_path):
+                continue
             doc.add_picture(chart_path, width=Inches(6.0))
-            last_paragraph = doc.paragraphs[-1]
-            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        anomaly_path = os.path.join(viz.chart_dir, "anomaly_scores.png")
-        if os.path.exists(anomaly_path):
-            doc.add_picture(anomaly_path, width=Inches(6.0))
-            last_paragraph = doc.paragraphs[-1]
-            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            caption = viz.description_of(filename)
+            if caption:
+                paragraph = doc.add_paragraph()
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = paragraph.add_run(caption)
+                run.italic = True
+                run.font.size = Pt(9)
 
     def _add_recommendations(self, doc: Document, summary: AnalysisSummary):
         doc.add_heading("Recommendations", level=1)
@@ -296,9 +298,11 @@ class ReportGenerator:
         )
         doc.add_paragraph(
             "The ML ensemble combined Isolation Forest, Local Outlier Factor, and "
-            "One-Class SVM models trained on baseline traffic profiles. Anomaly "
-            "scores were computed as weighted consensus across model votes, with "
-            "a detection threshold of 0.5."
+            "One-Class SVM models fitted on the analyzed capture itself. A time "
+            "window was flagged when at least two of the three models voted it an "
+            "outlier. The reported anomaly score is the Isolation Forest score "
+            "scaled to 0-1 within the capture; it is shown for context and is "
+            "not the flagging criterion."
         )
         doc.add_paragraph(
             "Threats flagged by both detection layers received elevated confidence "

@@ -8,7 +8,7 @@ from agents.feature_extractor import FeatureExtractor
 from agents.live_capture import LiveCaptureAgent
 from agents.log_parser import LogParser
 from agents.mock_data import (
-    get_mock_anomaly_scores,
+    get_mock_anomaly_windows,
     get_mock_protocol_dist,
     get_mock_report,
     get_mock_summary,
@@ -76,7 +76,8 @@ class ThreatAnalysisOrchestrator:
         # Phase 5: ML anomaly detection
         print("\n[5/7] Running ML anomaly detection...")
         detector = AnomalyDetector()
-        anomaly_alerts = detector.detect(feature_matrix)
+        anomaly_result = detector.analyze(feature_matrix)
+        anomaly_alerts = anomaly_result.alerts
         print(f"  {len(anomaly_alerts)} anomalous time windows")
 
         # Phase 6: Classify threats
@@ -115,11 +116,13 @@ class ThreatAnalysisOrchestrator:
             for i, ws in enumerate(feature_matrix.window_starts)
         ]
 
-        anomaly_scores = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
+        anomaly_windows = [
+            (w.time_window_start, w.anomaly_score, w.flagged) for w in anomaly_result.windows
+        ]
 
         chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
         viz = chart_gen.generate_all(
-            threat_report, parse_result.protocol_distribution, traffic_timeline, anomaly_scores
+            threat_report, parse_result.protocol_distribution, traffic_timeline, anomaly_windows
         )
 
         if self.report_format == "pdf":
@@ -196,7 +199,8 @@ class ThreatAnalysisOrchestrator:
 
         print("\n[5/7] Running ML anomaly detection...")
         detector = AnomalyDetector()
-        anomaly_alerts = detector.detect(feature_matrix)
+        anomaly_result = detector.analyze(feature_matrix)
+        anomaly_alerts = anomaly_result.alerts
         print(f"  {len(anomaly_alerts)} anomalous time windows")
 
         print("\n[6/7] Classifying threats...")
@@ -230,14 +234,16 @@ class ThreatAnalysisOrchestrator:
             (ws, float(feature_matrix.features[i][pps_idx]))
             for i, ws in enumerate(feature_matrix.window_starts)
         ]
-        anomaly_scores = [(a.time_window_start, a.anomaly_score) for a in anomaly_alerts]
+        anomaly_windows = [
+            (w.time_window_start, w.anomaly_score, w.flagged) for w in anomaly_result.windows
+        ]
 
         chart_gen = ChartGenerator(os.path.join(self.output_dir, "charts"))
         viz = chart_gen.generate_all(
             threat_report,
             parse_result.protocol_distribution,
             traffic_timeline,
-            anomaly_scores,
+            anomaly_windows,
         )
 
         if self.report_format == "pdf":
@@ -262,7 +268,7 @@ class ThreatAnalysisOrchestrator:
             mock_report,
             get_mock_protocol_dist(),
             get_mock_timeline(),
-            get_mock_anomaly_scores(),
+            get_mock_anomaly_windows(),
         )
 
         if self.report_format == "pdf":

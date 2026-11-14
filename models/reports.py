@@ -16,6 +16,10 @@ class VisualizationResult(BaseModel):
     chart_dir: str
     charts: list[ChartConfig]
 
+    def description_of(self, filename: str) -> str | None:
+        """Caption text of a generated chart, or None if that chart was not generated."""
+        return next((c.description for c in self.charts if c.filename == filename), None)
+
 
 class AnalysisSummary(BaseModel):
     source_files: list[str]

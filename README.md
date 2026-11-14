@@ -93,13 +93,13 @@ The two web rules read Apache log entries only. Paths are decoded repeatedly (`%
 
 ### ML Anomaly Detection
 
-| Algorithm | Strength | Weight |
-|-----------|----------|--------|
-| Isolation Forest | Global anomalies in high-dimensional data | 0.4 |
-| Local Outlier Factor | Local density-based anomalies | 0.35 |
-| One-Class SVM | Decision boundary for normal behavior | 0.25 |
+| Algorithm | Strength |
+|-----------|----------|
+| Isolation Forest | Global anomalies in high-dimensional data |
+| Local Outlier Factor | Local density-based anomalies |
+| One-Class SVM | Decision boundary for normal behavior |
 
-Ensemble uses majority voting: a time window is flagged when 2+ models agree.
+All three are fitted on the windows of the analyzed capture itself. A time window is flagged when at least 2 of the 3 models vote it an outlier; the models are not weighted. The anomaly score shown in the dashboard and the reports is the Isolation Forest score scaled to 0-1 within the capture, for context only, so a flagged window can score lower than an unflagged one.
 
 ---
 
